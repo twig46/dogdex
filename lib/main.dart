@@ -44,6 +44,12 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _serverUp = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _wakeServer();
+  }
+
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
@@ -88,15 +94,17 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
     return http.Response.fromStream(streamedResponse);
   }
 
-  Future<http.Response> _wakeServer() async {
-    final uri = Uri.parse("https://dog-api-bhz0.onrender.com/predict");
+  Future<void> _wakeServer() async {
+    final uri = Uri.parse("https://dog-api-bhz0.onrender.com/");
     final request = http.MultipartRequest('GET', uri);
-    final streamedResponse = await request.send();
+    await request.send();
+
+    if (!mounted) return;
+
     setState(() {
       _serverUp = true;
       status = "Awaiting dog";
     });
-    return http.Response.fromStream(streamedResponse);
   }
 
   @override
@@ -224,13 +232,8 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                 ),
               ]
               else ...[
-                FutureBuilder(
-                  future: _wakeServer(),
-                  builder: (context, snapshot) {
-                    return const SizedBox(height: 37);
-                  },
-                ),
-              ]
+                const SizedBox(height: 37),
+              ],
             ],
           ),
         ),
