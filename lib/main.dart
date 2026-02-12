@@ -165,7 +165,9 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                       ]
                       else ...[
                         CircularProgressIndicator(
-                          color: Colors.brown.shade300
+                          constraints: BoxConstraints().tighten(width: 70, height: 70),
+                          color: Colors.brown.shade300,
+                          strokeWidth: 8,
                         ),
                       ],
                       const SizedBox(height: 16),
@@ -225,7 +227,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                 FutureBuilder(
                   future: _wakeServer(),
                   builder: (context, snapshot) {
-                    return const CircularProgressIndicator();
+                    return const SizedBox(height: 37);
                   },
                 ),
               ]
