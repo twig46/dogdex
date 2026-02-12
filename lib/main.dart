@@ -40,8 +40,9 @@ class DogUploadScreen extends StatefulWidget {
 
 class _DogUploadScreenState extends State<DogUploadScreen> {
   File? _dogImage;
-  String status = "Awaiting Dog";
+  String status = "Waiting for server to start";
   final ImagePicker _picker = ImagePicker();
+  bool _serverUp = false;
 
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -75,7 +76,26 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
       dogPath,
       contentType: mimeType,
     ));
+
+    const apiKey = String.fromEnvironment(
+      'DOG_API_KEY', 
+      defaultValue: 'API_KEY_NOT_FOUND'
+    );
+
+    request.headers["X-API-Key"] = apiKey;
+
     final streamedResponse = await request.send();
+    return http.Response.fromStream(streamedResponse);
+  }
+
+  Future<http.Response> _wakeServer() async {
+    final uri = Uri.parse("https://dog-api-bhz0.onrender.com/predict");
+    final request = http.MultipartRequest('GET', uri);
+    final streamedResponse = await request.send();
+    setState(() {
+      _serverUp = true;
+      status = "Awaiting dog";
+    });
     return http.Response.fromStream(streamedResponse);
   }
 
@@ -120,27 +140,6 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.brown.shade400,
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
               ] else ...[
                 Container(
                   width: 300,
@@ -157,11 +156,18 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.pets,
-                        size: 80,
-                        color: Colors.brown.shade300,
-                      ),
+                      if (_serverUp) ...[
+                        Icon(
+                          Icons.pets,
+                          size: 80,
+                          color: Colors.brown.shade300,
+                        ),
+                      ]
+                      else ...[
+                        CircularProgressIndicator(
+                          color: Colors.brown.shade300
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       Text(
                         'No Dog yet :3',
@@ -171,27 +177,58 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      
                     ],
                   ),
                 ),
-                const SizedBox(height: 40),
               ],
-              FilledButton.icon(
-                onPressed: _pickImage,
-                icon: const Icon(Icons.add_a_photo),
-                label: Text(_dogImage == null ? 'Upload Dog' : 'Change Dog'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.brown.shade600,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 18,
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.brown.shade400,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 2,
                   ),
                 ),
               ),
+              const SizedBox(height: 20),
+              if (_serverUp) ...[
+                FilledButton.icon(
+                  onPressed: _pickImage,
+                  icon: const Icon(Icons.add_a_photo),
+                  label: Text(_dogImage == null ? 'Upload Dog' : 'Change Dog'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.brown.shade600,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ]
+              else ...[
+                FutureBuilder(
+                  future: _wakeServer(),
+                  builder: (context, snapshot) {
+                    return const CircularProgressIndicator();
+                  },
+                ),
+              ]
             ],
           ),
         ),
