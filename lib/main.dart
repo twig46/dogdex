@@ -26,10 +26,105 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const DogUploadScreen(),
+      home: const DogCollectionScreen(),
     );
   }
 }
+
+class DogCollectionScreen extends StatefulWidget {
+  const DogCollectionScreen({super.key});
+
+  @override
+  State<DogCollectionScreen> createState() => _DogCollectionScreenState();
+}
+
+class _DogCollectionScreenState extends State<DogCollectionScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.brown.shade50,
+      appBar: AppBar(
+        title: const Text(
+          '🐕 Collection',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.brown.shade300,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: <Widget>[
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const DogUploadScreen(),
+                ),
+              );
+            }, 
+            icon: const Icon(Icons.camera_alt_rounded)
+          ),
+          const SizedBox(width: 10),
+        ],
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: GridView.count(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            children: [
+              for (int i = 0; i < 5; i++) ...[
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const DogUploadScreen(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 300,
+                    height: 300,
+                    decoration: BoxDecoration(
+                      color: Colors.brown.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.brown.shade300,
+                        width: 3,
+                        style: BorderStyle.solid,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.pets,
+                          size: 80,
+                          color: Colors.brown.shade300,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Undiscovered :3',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.brown.shade400,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 class DogUploadScreen extends StatefulWidget {
   const DogUploadScreen({super.key});
@@ -133,7 +228,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.brown.withOpacity(0.3),
+                        color: Colors.brown.withValues(alpha: 0.3),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),
@@ -180,7 +275,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                       ],
                       const SizedBox(height: 16),
                       Text(
-                        'No Dog yet :3',
+                        'No dog yet :3',
                         style: TextStyle(
                           fontSize: 18,
                           color: Colors.brown.shade400,
