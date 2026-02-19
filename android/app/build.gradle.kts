@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.dogdex"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersionz
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
