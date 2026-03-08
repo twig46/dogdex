@@ -8,11 +8,38 @@ import 'package:http_parser/http_parser.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+final String apiUrl = "http://localhost:8000";
+
+const String API_KEY_ENV = String.fromEnvironment(
+  'API_KEY',
+  defaultValue: 'API_KEY_NOT_FOUND',
+);
+
+String API_KEY = "";
+
 Future<Map<int, String>> loadLabels() async {
   final jsonString = await rootBundle.loadString('assets/labels.json');
   final Map<String, dynamic> data = json.decode(jsonString);
 
   return data.map((key, value) => MapEntry(value, key));
+}
+
+Future<http.Response> createSession() async {
+  final uri = Uri.parse("$apiUrl/session");
+  final request = http.MultipartRequest('GET', uri);
+  final streamedResponse = await request.send();
+  final response = await http.Response.fromStream(streamedResponse);
+
+  API_KEY = API_KEY_ENV;
+
+  if (API_KEY == 'API_KEY_NOT_FOUND') {
+    API_KEY = response.body;
+  }
+  if (kDebugMode) {
+    debugPrint(API_KEY);
+  }
+
+  return response;
 }
 
 final Future<Map<int, String>> dogClasses = loadLabels();
@@ -74,38 +101,47 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
       final predictions = jsonDecode(response.body) as Map<String, dynamic>;
       final top = predictions["predictions"][0];
       setState(() {
-        status = "We think this is a ${top["breed"]} with ${(top["probability"]*100).toStringAsFixed(1)}% certainty";
+        status =
+            "We think this is a ${top["breed"]} with ${(top["probability"] * 100).toStringAsFixed(1)}% certainty";
       });
     }
   }
 
   Future<http.Response> _predictDog(String dogPath) async {
-    final uri = Uri.parse("https://dog-api.up.railway.app/predict");
-    final request = http.MultipartRequest('POST', uri);
-    
-    final mimeType = dogPath.toLowerCase().endsWith('.png') 
-        ? MediaType('image', 'png') 
-        : MediaType('image', 'jpeg');
+    Future<http.Response> sendRequest() async {
+      final uri = Uri.parse("$apiUrl/predict");
+      final request = http.MultipartRequest('POST', uri);
 
-    request.files.add(await http.MultipartFile.fromPath(
-      'image', 
-      dogPath,
-      contentType: mimeType,
-    ));
+      final mimeType = dogPath.toLowerCase().endsWith('.png')
+          ? MediaType('image', 'png')
+          : MediaType('image', 'jpeg');
 
-    const apiKey = String.fromEnvironment(
-      'DOG_API_KEY', 
-      defaultValue: 'API_KEY_NOT_FOUND'
-    );
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'image',
+          dogPath,
+          contentType: mimeType,
+        ),
+      );
 
-    request.headers["X-API-Key"] = apiKey;
+      request.headers["X-API-Key"] = API_KEY;
 
-    final streamedResponse = await request.send();
-    return http.Response.fromStream(streamedResponse);
+      final streamedResponse = await request.send();
+      return http.Response.fromStream(streamedResponse);
+    }
+
+    var response = await sendRequest();
+
+    if (response.statusCode == 403) {
+      await createSession();
+      response = await sendRequest();
+    }
+
+    return response;
   }
 
   Future<void> _wakeServer() async {
-    final uri = Uri.parse("https://dog-api.up.railway.app/");
+    final uri = Uri.parse("$apiUrl/");
     final request = http.MultipartRequest('GET', uri);
     await request.send();
 
@@ -180,10 +216,12 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                           size: 80,
                           color: Colors.brown.shade300,
                         ),
-                      ]
-                      else ...[
+                      ] else ...[
                         CircularProgressIndicator(
-                          constraints: BoxConstraints().tighten(width: 70, height: 70),
+                          constraints: BoxConstraints().tighten(
+                            width: 70,
+                            height: 70,
+                          ),
                           color: Colors.brown.shade300,
                           strokeWidth: 8,
                         ),
@@ -239,8 +277,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                     ),
                   ),
                 ),
-              ]
-              else ...[
+              ] else ...[
                 const SizedBox(height: 37),
               ],
             ],
@@ -280,8 +317,8 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                   builder: (context) => const DogUploadScreen(),
                 ),
               );
-            }, 
-            icon: const Icon(Icons.camera_alt_rounded)
+            },
+            icon: const Icon(Icons.camera_alt_rounded),
           ),
           const SizedBox(width: 10),
         ],
@@ -335,7 +372,7 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                       ],
                     ),
                   ),
-                )
+                ),
               ],
             ],
           ),
@@ -358,15 +395,17 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
   late Future<Map<String, dynamic>> dogInfo;
 
   Future<Map<String, dynamic>> _getInfo() async {
-    final uri = Uri.parse("https://dog-api.up.railway.app/info");
+    final uri = Uri.parse("$apiUrl/info");
     final request = http.MultipartRequest('POST', uri);
 
     final dogBreed = await dogClasses;
-    request.fields.addEntries({'breed': dogBreed[widget.dogNum] ?? 'Unknown'}.entries);
+    request.fields.addEntries(
+      {'breed': dogBreed[widget.dogNum] ?? 'Unknown'}.entries,
+    );
 
     const apiKey = String.fromEnvironment(
-      'DOG_API_KEY', 
-      defaultValue: 'API_KEY_NOT_FOUND'
+      'DOG_API_KEY',
+      defaultValue: 'API_KEY_NOT_FOUND',
     );
 
     request.headers["X-API-Key"] = apiKey;
@@ -410,7 +449,10 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     CircularProgressIndicator(
-                      constraints: BoxConstraints().tighten(width: 70, height: 70),
+                      constraints: BoxConstraints().tighten(
+                        width: 70,
+                        height: 70,
+                      ),
                       color: Colors.brown.shade300,
                       strokeWidth: 8,
                     ),
