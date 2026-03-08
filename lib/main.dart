@@ -8,7 +8,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-final String apiUrl = "http://localhost:8000";
+final String apiUrl = "http://dog-api.tobyv.dev";
 
 const String API_KEY_ENV = String.fromEnvironment(
   'API_KEY',
@@ -42,7 +42,14 @@ Future<http.Response> createSession() async {
   return response;
 }
 
+Future<List<String>> loadApiDogs() async {
+  final jsonString = await rootBundle.loadString('assets/api_dogs.json');
+  final List<dynamic> data = json.decode(jsonString);
+  return data.cast<String>();
+}
+
 final Future<Map<int, String>> dogClasses = loadLabels();
+final Future<List<String>> apiDogs = loadApiDogs();
 
 void main() {
   runApp(const MyApp());
@@ -53,6 +60,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
     return MaterialApp(
       title: 'Dogdex',
       debugShowCheckedModeBanner: false,
@@ -84,7 +95,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
   @override
   void initState() {
     super.initState();
-    _wakeServer();
+    checkServer();
   }
 
   Future<void> _pickImage() async {
@@ -153,6 +164,26 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
     });
   }
 
+  Future<void> checkServer() async {
+    final uri = Uri.parse("$apiUrl/");
+    final request = http.MultipartRequest('GET', uri);
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (!mounted) return;
+    
+    setState(() {
+      if (response.statusCode != 502) {
+        _serverUp = true;
+        status = "Awaiting dog";
+      } else {
+        _serverUp = false;
+        status = "Cannot reach server";
+
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -207,32 +238,23 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                       style: BorderStyle.solid,
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      if (_serverUp) ...[
-                        Icon(
-                          Icons.pets,
-                          size: 80,
-                          color: Colors.brown.shade300,
-                        ),
-                      ] else ...[
-                        CircularProgressIndicator(
-                          constraints: BoxConstraints().tighten(
-                            width: 70,
-                            height: 70,
+                      Icon(Icons.pets, size: 80, color: Colors.brown.shade300),
+                      Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                          child: Text(
+                            'No dog yet :3',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.brown.shade400,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                          color: Colors.brown.shade300,
-                          strokeWidth: 8,
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      Text(
-                        'No dog yet :3',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.brown.shade400,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -251,6 +273,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                 ),
                 child: Text(
                   status,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -296,6 +319,8 @@ class DogCollectionScreen extends StatefulWidget {
 }
 
 class _DogCollectionScreenState extends State<DogCollectionScreen> {
+  bool advanced = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -312,6 +337,14 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
         actions: <Widget>[
           IconButton(
             onPressed: () {
+              setState(() {
+                advanced = !advanced;
+              });
+            },
+            icon: Icon(advanced ? Icons.check_circle : Icons.circle_outlined),
+          ),
+          IconButton(
+            onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => const DogUploadScreen(),
@@ -326,55 +359,97 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          child: GridView.count(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            children: [
-              for (int i = 1; i < 119; i++) ...[
-                GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => DogInfoScreen(dogNum: i),
+          child: FutureBuilder<List<Object>>(
+            future: Future.wait([dogClasses, apiDogs]),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      constraints: BoxConstraints().tighten(
+                        width: 70,
+                        height: 70,
                       ),
-                    );
-                  },
-                  child: Container(
-                    width: 300,
-                    height: 300,
-                    decoration: BoxDecoration(
-                      color: Colors.brown.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.brown.shade300,
-                        width: 3,
-                        style: BorderStyle.solid,
-                      ),
+                      color: Colors.brown.shade300,
+                      strokeWidth: 8,
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.pets,
-                          size: 80,
-                          color: Colors.brown.shade300,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Undiscovered :3',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.brown.shade400,
-                            fontWeight: FontWeight.w500,
+                  ],
+                );
+              }
+
+              if (snapshot.hasError || !snapshot.hasData) {
+                return Text('Error loading dogs: ${snapshot.error}');
+              }
+
+              final breeds = snapshot.data![0] as Map<int, String>;
+              final allowedBreeds = (snapshot.data![1] as List<String>).toSet();
+
+              var sortedIds = breeds.keys.toList();
+              if (!advanced) {
+                sortedIds = sortedIds
+                    .where((id) => allowedBreeds.contains(breeds[id]))
+                    .toList();
+              }
+              sortedIds.sort((a, b) => breeds[a]!.compareTo(breeds[b]!));
+
+              return GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                children: [
+                  for (final i in sortedIds) ...[
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => DogInfoScreen(dogNum: i),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 300,
+                        height: 300,
+                        decoration: BoxDecoration(
+                          color: Colors.brown.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.brown.shade300,
+                            width: 3,
+                            style: BorderStyle.solid,
                           ),
                         ),
-                      ],
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.pets,
+                              size: 80,
+                              color: Colors.brown.shade300,
+                            ),
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                              ),
+                              child: Text(
+                                breeds[i]!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.brown.shade400,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ],
+                  ],
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -395,24 +470,40 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
   late Future<Map<String, dynamic>> dogInfo;
 
   Future<Map<String, dynamic>> _getInfo() async {
-    final uri = Uri.parse("$apiUrl/info");
-    final request = http.MultipartRequest('POST', uri);
-
     final dogBreed = await dogClasses;
-    request.fields.addEntries(
-      {'breed': dogBreed[widget.dogNum] ?? 'Unknown'}.entries,
-    );
+    final breedName = dogBreed[widget.dogNum] ?? 'Unknown';
 
-    const apiKey = String.fromEnvironment(
-      'DOG_API_KEY',
-      defaultValue: 'API_KEY_NOT_FOUND',
-    );
+    final jsonString = await rootBundle.loadString('assets/dog_api.json');
+    final List<dynamic> allBreeds = jsonDecode(jsonString) as List<dynamic>;
 
-    request.headers["X-API-Key"] = apiKey;
+    String normalize(String s) {
+      final lower = s.toLowerCase();
+      final withoutDog = lower.replaceAll('dog', '');
+      final cleaned = withoutDog.replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
+      final tokens =
+          cleaned.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList()
+            ..sort();
+      return tokens.join(' ');
+    }
 
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    final target = normalize(breedName);
+
+    Map<String, dynamic>? match;
+    for (final item in allBreeds) {
+      if (item is Map<String, dynamic>) {
+        final name = item['name'] as String? ?? '';
+        if (normalize(name) == target) {
+          match = item;
+          break;
+        }
+      }
+    }
+
+    if (match == null) {
+      return <String, dynamic>{'name': breedName};
+    }
+
+    return match;
   }
 
   @override
@@ -486,12 +577,16 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                           color: Colors.brown.shade300,
                         ),
                         const SizedBox(height: 16),
-                        Text(
-                          'No dog yet :3',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.brown.shade400,
-                            fontWeight: FontWeight.w500,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Text(
+                            "Undiscovered :3",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.brown.shade400,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -509,6 +604,7 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                     ),
                     child: Text(
                       data["name"] as String? ?? 'Unknown',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -517,6 +613,17 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                       ),
                     ),
                   ),
+                  if (data['description'] != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      data['description'] as String,
+                      textAlign: TextAlign.justify,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.brown.shade800,
+                      ),
+                    ),
+                  ],
                 ],
               );
             },
