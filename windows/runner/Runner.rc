@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "dogdex" "\0"
+            VALUE "FileDescription", "DogDex" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "dogdex" "\0"
+            VALUE "InternalName", "DogDex" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "dogdex.exe" "\0"
-            VALUE "ProductName", "dogdex" "\0"
+            VALUE "OriginalFilename", "DogDex.exe" "\0"
+            VALUE "ProductName", "DogDex" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -118,7 +118,7 @@ class MyApp extends StatelessWidget {
       DeviceOrientation.portraitDown,
     ]);
     return MaterialApp(
-      title: 'Dogdex',
+      title: 'DogDex',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -303,7 +303,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
       backgroundColor: Colors.brown.shade50,
       appBar: AppBar(
         title: const Text(
-          '🐕 Dogdex',
+          '🐕 Upload',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -837,7 +837,7 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
       backgroundColor: Colors.brown.shade50,
       appBar: AppBar(
         title: const Text(
-          '🐕 Upload',
+          '🐕 Info',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
