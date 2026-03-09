@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
-final String apiUrl = "http://dog-api.tobyv.dev";
+final String apiUrl = "https://dog-api.tobyv.dev";
 
 const String API_KEY_ENV = String.fromEnvironment(
   'API_KEY',
