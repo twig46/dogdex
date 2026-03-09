@@ -482,55 +482,34 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    spacing: 10,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: () async {
-                          if (_dogImage == null || breed == null) {
-                            return;
-                          }
-                          await saveImage(
-                            _dogImage!,
-                            _toSnakeCase(breed!),
-                          );
-                          if (!mounted) return;
-                          Navigator.of(context).pop();
-                        },
-                        icon: const Icon(Icons.done),
-                        label: Text("Yes"),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.brown.shade600,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      if (_dogImage == null || breed == null) {
+                        return;
+                      }
+                      final navigator = Navigator.of(context);
+                      final imageKey = _toSnakeCase(breed!);
+                      await saveImage(
+                        _dogImage!,
+                        imageKey,
+                      );
+                      if (!mounted) return;
+                      navigator.pop(imageKey);
+                      
+                    },
+                    icon: const Icon(Icons.done),
+                    label: Text("Ok"),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.brown.shade600,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
                       ),
-                      FilledButton.icon(
-                        onPressed:  (){setState(() {
-                          _dogImage = null;
-                        });},
-                        icon: const Icon(Icons.close),
-                        label: Text("No"),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.brown.shade600,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ] else ...[
@@ -554,6 +533,9 @@ class DogCollectionScreen extends StatefulWidget {
 class _DogCollectionScreenState extends State<DogCollectionScreen> {
   bool advanced = false;
   late Future<Map<String, String>> _savedDogImages;
+  final List<GlobalKey> globalKeys = [];
+  String? _scrollToImageKey;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -562,12 +544,18 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
   }
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.brown.shade50,
       appBar: AppBar(
         title: const Text(
-          '🐕 Collection',
+          '🐕 DogDex',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -592,9 +580,13 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                   builder: (context) => const DogUploadScreen(),
                 ),
               )
-                  .then((_) {
+                  .then((result) {
                 setState(() {
                   _savedDogImages = loadSavedDogImages();
+                  if (result is String) {
+                    advanced = true;
+                    _scrollToImageKey = result;
+                  }
                 });
               });
             },
@@ -641,14 +633,62 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
               }
               sortedIds.sort((a, b) => breeds[a]!.compareTo(breeds[b]!));
 
+              globalKeys
+                ..clear()
+                ..addAll(List.generate(sortedIds.length, (_) => GlobalKey()));
+
+              if (_scrollToImageKey != null) {
+                int? targetIndex;
+                for (var index = 0; index < sortedIds.length; index++) {
+                  final breedName = breeds[sortedIds[index]]!;
+                  final imageKey = _toSnakeCase(breedName);
+                  if (imageKey == _scrollToImageKey) {
+                    targetIndex = index;
+                    break;
+                  }
+                }
+
+                if (targetIndex != null) {
+                  final int indexToScroll = targetIndex;
+
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_scrollController.hasClients) {
+                      final row = indexToScroll ~/ 2; // crossAxisCount = 2
+                      final maxExtent = _scrollController.position.maxScrollExtent;
+                      final rows = (sortedIds.length / 2).ceil().clamp(1, 1000000);
+                      final double rowHeight = rows > 1
+                          ? (maxExtent / (rows - 1))
+                          : 0.0;
+                      final double offset = (row * rowHeight)
+                          .clamp(0.0, maxExtent);
+
+                      _scrollController.animateTo(
+                        offset,
+                        duration: const Duration(milliseconds: 500),
+                        curve: Curves.easeInOut,
+                      );
+                    }
+                  });
+                } else {
+                  if (kDebugMode) {
+                    debugPrint('DogCollectionScreen: no tile found for key $_scrollToImageKey');
+                  }
+                }
+
+                _scrollToImageKey = null;
+              }
+
               return GridView.count(
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
+                controller: _scrollController,
                 children: [
-                  for (final i in sortedIds) ...[
+                  for (var index = 0; index < sortedIds.length; index++)
                     GestureDetector(
+                      key: globalKeys[index],
                       onTap: () {
+                        final i = sortedIds[index];
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (context) => DogInfoScreen(dogNum: i),
@@ -668,6 +708,7 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                           ),
                         ),
                         child: () {
+                          final i = sortedIds[index];
                           final breedName = breeds[i]!;
                           final imageKey = _toSnakeCase(breedName);
                           final imagePath = savedImages[imageKey];
@@ -711,7 +752,6 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                         }(),
                       ),
                     ),
-                  ],
                 ],
               );
             },
@@ -797,7 +837,7 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
       backgroundColor: Colors.brown.shade50,
       appBar: AppBar(
         title: const Text(
-          '🐕 Dogdex',
+          '🐕 Upload',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
