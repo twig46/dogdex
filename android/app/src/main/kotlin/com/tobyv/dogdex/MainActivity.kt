@@ -1,4 +1,4 @@
-package com.example.dogdex
+package com.tobyv.dogdex
 
 import io.flutter.embedding.android.FlutterActivity
 

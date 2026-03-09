@@ -153,8 +153,8 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
     checkServer();
   }
 
-  Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+  Future<void> _pickImage(ImageSource source) async {
+    final XFile? image = await _picker.pickImage(source: source);
     if (image != null) {
       setState(() {
         _dogImage = File(image.path);
@@ -267,6 +267,36 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
     });
   }
 
+  void _showImageSourceMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: Icon(Icons.photo),
+                title: Text('Gallery'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.camera),
+                title: Text('Camera'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -370,7 +400,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
               ],
               if (_serverUp && status != "Analyzing...") ...[
                 FilledButton.icon(
-                  onPressed: _pickImage,
+                  onPressed: () => _showImageSourceMenu(context),
                   icon: const Icon(Icons.add_a_photo),
                   label: Text(_dogImage == null ? 'Upload Dog' : 'Change Dog'),
                   style: FilledButton.styleFrom(
@@ -465,6 +495,8 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                             _dogImage!,
                             _toSnakeCase(breed!),
                           );
+                          if (!mounted) return;
+                          Navigator.of(context).pop();
                         },
                         icon: const Icon(Icons.done),
                         label: Text("Yes"),
