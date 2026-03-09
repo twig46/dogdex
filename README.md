@@ -9,13 +9,17 @@ I'm making this [project](https://flavortown.hackclub.com/projects/11999) for th
 
 The main two features of DogDex are tracking, and identifying dogs. By going to the little camera icon in the top right you can either take a photo of a dog or use one in your library.
 
-[camera] #TODO: add camera icon
+![camera](img/camera.png)
 
 Your picture is then sent to my personal API for identifying dogs and a result is spit out.
 
-[result] #TODO: add result pic
+![result](img/result.png)
 
 You can then press "Ok" to add the dog to your personal collection!
+
+### Extra Usage Notes
+ - Pressing the unfilled circle on the top bar brings up a bunch more dogs on the collection screen, but most of them won't have any information
+ - If you re-open the app too many times or process too many dogs you will get rate limited but you would have to be actively trying to reach the limit
 
 ## Design Process
 
@@ -31,4 +35,4 @@ You can download the latest build of the Android app from https://tobyv.dev/dogd
 I currently have little to no plans for a PC or iOS port however I may consider it if demand is high enough (unlikely).
 
 ## Contact
-If you have any issues or suggestions please contect me either at support@tobyv.dev or [submit an issue](https://github.com/twig46/dogdex/issues/new/choose) on the GitHub repo.
+If you have any issues or suggestions please contect me either at [support@tobyv.dev](mailto:support@tobyv.dev) or [submit an issue](https://github.com/twig46/dogdex/issues/new/choose) on the GitHub repo.
