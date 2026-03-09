@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 final String apiUrl = "https://dog-api.tobyv.dev";
 
@@ -24,6 +25,17 @@ String _toSnakeCase(String value) {
       .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
       .replaceAll(RegExp(r'^_+|_+$'), '');
 }
+
+Future<void> _launchURL(String url) async {
+   final Uri uri = Uri.parse(url);
+   if (!await launchUrl(uri)) {
+        throw Exception('Could not launch $url');
+    }
+}
+
+String article(String word) {
+  return RegExp(r'^[aeiouAEIOU]').hasMatch(word) ? 'an' : 'a';
+} 
 
 Future<Map<int, String>> loadLabels() async {
   final jsonString = await rootBundle.loadString('assets/labels.json');
@@ -129,7 +141,7 @@ class DogUploadScreen extends StatefulWidget {
 
 class _DogUploadScreenState extends State<DogUploadScreen> {
   File? _dogImage;
-  String status = "Waiting for server to start";
+  String status = "Checking if server is available";
   final ImagePicker _picker = ImagePicker();
   bool _serverUp = false;
   String? breed;
@@ -375,6 +387,71 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                 ),
                 const SizedBox(height: 20),
                 if (_dogImage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.brown.shade400,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Text(
+                      "Breed",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Column(
+                    children: [
+                      Text(
+                        'We are ${(confidence as double).toStringAsFixed(1)}% certain',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.brown.shade800,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'this is ${article(breed as String)} ${breed as String}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.brown.shade700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.brown.shade400,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Text(
+                      "Save to your collection?",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     spacing: 10,
@@ -404,7 +481,9 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                         ),
                       ),
                       FilledButton.icon(
-                        onPressed: _pickImage,
+                        onPressed:  (){setState(() {
+                          _dogImage = null;
+                        });},
                         icon: const Icon(Icons.close),
                         label: Text("No"),
                         style: FilledButton.styleFrom(
@@ -463,6 +542,7 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
         backgroundColor: Colors.brown.shade300,
         foregroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(onPressed: () async {await _launchURL("https://github.com/twig46/dogdex/issues/new/choose");} , icon: Icon(Icons.flag)),
         actions: <Widget>[
           IconButton(
             onPressed: () {
@@ -474,11 +554,17 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
           ),
           IconButton(
             onPressed: () {
-              Navigator.of(context).push(
+              Navigator.of(context)
+                  .push(
                 MaterialPageRoute(
                   builder: (context) => const DogUploadScreen(),
                 ),
-              );
+              )
+                  .then((_) {
+                setState(() {
+                  _savedDogImages = loadSavedDogImages();
+                });
+              });
             },
             icon: const Icon(Icons.camera_alt_rounded),
           ),
