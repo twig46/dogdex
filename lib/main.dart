@@ -870,8 +870,9 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                 return Text('Error: ${snapshot.error}');
               }
               final data = snapshot.data ?? {};
-              return Column(
-                children: [
+              return SingleChildScrollView(
+                child: Column(
+                  children: [
                   Container(
                     width: 300,
                     height: 300,
@@ -944,19 +945,233 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                       ),
                     ),
                   ),
-                  if (data['description'] != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      data['description'] as String,
-                      textAlign: TextAlign.justify,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.brown.shade800,
+
+
+
+
+                  const SizedBox(height: 15),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 15,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          spacing: 15,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                            decoration: BoxDecoration(
+                              color: Colors.brown.shade100,
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(
+                                color: Colors.brown.shade100,
+                                width: 15,
+                                style: BorderStyle.solid,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.brown.shade400,
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  child: Text(
+                                    "Height",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 2,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  "${data['height']['metric']}cm"
+                                ),
+                                const SizedBox(height: 15),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.brown.shade400,
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  child: Text(
+                                    "Weight",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 2,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  "${data['weight']['metric']}kg"
+                                  ),
+                                ],
+                              ),
+                            ),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.brown.shade100,
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(
+                                color: Colors.brown.shade100,
+                                width: 15,
+                                style: BorderStyle.solid,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.brown.shade400,
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  child: Text(
+                                    "Lifespan",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 2,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  "${data['life_span']} years"
+                                ),
+                              ],
+                            ),
+                          ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.brown.shade100,
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(
+                                  color: Colors.brown.shade100,
+                                  width: 15,
+                                  style: BorderStyle.solid,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.brown.shade400,
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: Text(
+                                      "Temperament",
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    data["temperament"],
+                                    textAlign: TextAlign.left,
+                                    softWrap: true,
+                                  ),
+                                  const SizedBox(height: 15),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.brown.shade400,
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: Text(
+                                      "Description",
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    data["description"],
+                                    textAlign: TextAlign.left,
+                                    softWrap: true,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+
+
+
+
+                  // if (data['description'] != null) ...[
+                  //   const SizedBox(height: 16),
+                  //   Text(
+                  //     data['description'] as String,
+                  //     textAlign: TextAlign.justify,
+                  //     style: TextStyle(
+                  //       fontSize: 16,
+                  //       color: Colors.brown.shade800,
+                  //     ),
+                  //   ),
+                  // ],
+
+
+
+
+
+
+
+
+
+              
                 ],
-              );
+              ),
+            );
             },
           ),
         ),
