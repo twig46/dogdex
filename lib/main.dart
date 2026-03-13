@@ -557,6 +557,7 @@ class DogCollectionScreen extends StatefulWidget {
 class _DogCollectionScreenState extends State<DogCollectionScreen> {
   bool advanced = false;
   String commonality = "very_common";
+  bool showOnlySaved = false;
   late Future<Map<String, String>> _savedDogImages;
   final List<GlobalKey> globalKeys = [];
   String? _scrollToImageKey;
@@ -593,12 +594,24 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          onPressed: () async {
-            await _launchURL(
-              "https://github.com/twig46/dogdex/issues/new/choose",
-            );
+          onPressed: () {
+            Navigator.of(context)
+                .push(
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                )
+                .then((result) {
+                  SharedPreferences.getInstance().then((prefs) {
+                    if (!mounted) return;
+                    setState(() {
+                      commonality =
+                          prefs.getString('commonality') ?? "very_common";
+                    });
+                  });
+                });
           },
-          icon: Icon(Icons.bug_report),
+          icon: Icon(Icons.settings),
         ),
         actions: <Widget>[
           IconButton(
@@ -611,28 +624,16 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
           ),
           IconButton(
             onPressed: () {
-              Navigator.of(context)
-                  .push(
-                    MaterialPageRoute(
-                      builder: (context) => const SettingsScreen(),
-                    ),
-                  )
-                  .then((result) {
-                    SharedPreferences.getInstance().then((prefs) {
-                      if (!mounted) return;
-                      setState(() {
-                        _savedDogImages = loadSavedDogImages();
-                        commonality =
-                            prefs.getString('commonality') ?? "very_common";
-                        if (result is String) {
-                          advanced = true;
-                          _scrollToImageKey = result;
-                        }
-                      });
-                    });
-                  });
+              setState(() {
+                showOnlySaved = !showOnlySaved;
+                if (showOnlySaved) {
+                  advanced = true;
+                } else {
+                  advanced = false;
+                }
+              });
             },
-            icon: const Icon(Icons.camera_alt_rounded),
+            icon: Icon(showOnlySaved ? Icons.photo : Icons.photo_outlined),
           ),
           const SizedBox(width: 10),
         ],
@@ -657,7 +658,19 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                   MaterialPageRoute(
                     builder: (context) => const DogUploadScreen(),
                   ),
-                );
+                )
+                .then((result) {
+                  SharedPreferences.getInstance().then((prefs) {
+                    if (!mounted) return;
+                    setState(() {
+                      _savedDogImages = loadSavedDogImages();
+                      if (result is String) {
+                        advanced = true;
+                        _scrollToImageKey = result;
+                      }
+                    });
+                  });
+                });
             }
           ),
         ),
@@ -717,6 +730,11 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                 final allowedBreeds = allowedForCommonality(commonality);
                 sortedIds = sortedIds
                     .where((id) => allowedBreeds.contains(breeds[id]))
+                    .toList();
+              }
+              if (showOnlySaved) {
+                sortedIds = sortedIds
+                    .where((id) => savedImages.containsKey(_toSnakeCase(breeds[id]!)))
                     .toList();
               }
               sortedIds.sort((a, b) => breeds[a]!.compareTo(breeds[b]!));
