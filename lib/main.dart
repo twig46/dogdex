@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -27,21 +28,29 @@ String _toSnakeCase(String value) {
 }
 
 Future<void> _launchURL(String url) async {
-   final Uri uri = Uri.parse(url);
-   if (!await launchUrl(uri)) {
-        throw Exception('Could not launch $url');
-    }
+  final Uri uri = Uri.parse(url);
+  if (!await launchUrl(uri)) {
+    throw Exception('Could not launch $url');
+  }
 }
 
 String article(String word) {
   return RegExp(r'^[aeiouAEIOU]').hasMatch(word) ? 'an' : 'a';
-} 
+}
 
 Future<Map<int, String>> loadLabels() async {
   final jsonString = await rootBundle.loadString('assets/labels.json');
   final Map<String, dynamic> data = json.decode(jsonString);
 
   return data.map((key, value) => MapEntry(value, key));
+}
+
+Future<Map<String, Set<String>>> loadDogNamesByCommonality() async {
+  final jsonString = await rootBundle.loadString('assets/dog_names.json');
+  final Map<String, dynamic> data = json.decode(jsonString);
+  return data.map(
+    (key, value) => MapEntry(key, (value as List<dynamic>).cast<String>().toSet()),
+  );
 }
 
 Future<http.Response> createSession() async {
@@ -71,14 +80,9 @@ Future<http.Response> createSession() async {
   return response;
 }
 
-Future<List<String>> loadApiDogs() async {
-  final jsonString = await rootBundle.loadString('assets/api_dogs.json');
-  final List<dynamic> data = json.decode(jsonString);
-  return data.cast<String>();
-}
-
 final Future<Map<int, String>> dogClasses = loadLabels();
-final Future<List<String>> apiDogs = loadApiDogs();
+final Future<Map<String, Set<String>>> dogNamesByCommonality =
+    loadDogNamesByCommonality();
 
 Future<Map<String, String>> loadSavedDogImages() async {
   final dir = await getApplicationDocumentsDirectory();
@@ -141,7 +145,8 @@ class DogUploadScreen extends StatefulWidget {
 
 class _DogUploadScreenState extends State<DogUploadScreen> {
   File? _dogImage;
-  String status = "Checking if server is available";
+  bool _analyzing = false;
+  bool _checking = true;
   final ImagePicker _picker = ImagePicker();
   bool _serverUp = false;
   String? breed;
@@ -158,7 +163,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
     if (image != null) {
       setState(() {
         _dogImage = File(image.path);
-        status = "Analyzing...";
+        _analyzing = true;
       });
       final response = await _predictDog(image.path);
       if (kDebugMode) {
@@ -166,7 +171,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
       }
       if (response.statusCode != 200) {
         setState(() {
-          status = "Error: ${response.statusCode}";
+          _analyzing = false;
         });
         return;
       }
@@ -176,7 +181,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
           decoded["predictions"] is! List ||
           (decoded["predictions"] as List).isEmpty) {
         setState(() {
-          status = "Unexpected response from server";
+          _analyzing = false;
         });
         return;
       }
@@ -184,11 +189,13 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
       final top =
           (decoded["predictions"] as List).first as Map<String, dynamic>;
       setState(() {
-        status = "Awaiting dog";
+        _analyzing = false;
         breed = top["breed"];
         confidence = (top["probability"] * 100);
         if (kDebugMode) {
-          debugPrint("$breed with ${confidence?.toStringAsFixed(1)}% confidence");
+          debugPrint(
+            "$breed with ${confidence?.toStringAsFixed(1)}% confidence",
+          );
         }
       });
     }
@@ -257,44 +264,9 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
     if (!mounted) return;
 
     setState(() {
-      if (response.statusCode != 502) {
-        _serverUp = true;
-        status = "Awaiting dog";
-      } else {
-        _serverUp = false;
-        status = "Cannot reach server";
-      }
+      _checking = false;
+      _serverUp = response.statusCode != 502;
     });
-  }
-
-  void _showImageSourceMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: Icon(Icons.photo),
-                title: Text('Gallery'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.camera),
-                title: Text('Camera'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -303,7 +275,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
       backgroundColor: Colors.brown.shade50,
       appBar: AppBar(
         title: const Text(
-          '🐕 Upload',
+          '🐕 Analyze',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -375,7 +347,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                 ),
               ],
               const SizedBox(height: 20),
-              if (_dogImage == null) ...[
+              if (!_checking && !_serverUp) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -386,7 +358,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: Text(
-                    status,
+                    "Cannot reach server",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 24,
@@ -398,25 +370,47 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                 ),
                 const SizedBox(height: 20),
               ],
-              if (_serverUp && status != "Analyzing...") ...[
-                FilledButton.icon(
-                  onPressed: () => _showImageSourceMenu(context),
-                  icon: const Icon(Icons.add_a_photo),
-                  label: Text(_dogImage == null ? 'Upload Dog' : 'Change Dog'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.brown.shade600,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+              if (_serverUp && !_analyzing) ...[
+                if (_dogImage == null) ...[
+                  Row(
+                    spacing: 15,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: () => _pickImage(ImageSource.camera),
+                        icon: const Icon(Icons.camera),
+                        label: Text('Camera'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.brown.shade600,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      FilledButton.icon(
+                        onPressed: () => _pickImage(ImageSource.gallery),
+                        icon: const Icon(Icons.photo),
+                        label: Text('Gallery'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.brown.shade600,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 20),
-                if (_dogImage != null) ...[
+                ] else ...[
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -427,7 +421,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                     child: Text(
-                      "Breed",
+                      "Identified!",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24,
@@ -471,7 +465,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                     child: Text(
-                      "Save to your collection?",
+                      "Add to your collection?",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24,
@@ -482,35 +476,65 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  FilledButton.icon(
-                    onPressed: () async {
-                      if (_dogImage == null || breed == null) {
-                        return;
-                      }
-                      final navigator = Navigator.of(context);
-                      final imageKey = _toSnakeCase(breed!);
-                      await saveImage(
-                        _dogImage!,
-                        imageKey,
-                      );
-                      if (!mounted) return;
-                      navigator.pop(imageKey);
-                      
-                    },
-                    icon: const Icon(Icons.done),
-                    label: Text("Ok"),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.brown.shade600,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 16,
+                  Row(
+                    spacing: 15,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: () async {
+                          if (_dogImage == null || breed == null) {
+                            return;
+                          }
+                          final navigator = Navigator.of(context);
+                          final imageKey = _toSnakeCase(breed!);
+                          await saveImage(_dogImage!, imageKey);
+                          if (!mounted) return;
+                          navigator.pop(imageKey);
+                        },
+                        icon: const Icon(Icons.done),
+                        label: Text("Yes"),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.brown.shade600,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                      textStyle: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                      FilledButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _dogImage = null;
+                          });
+                        },
+                        icon: const Icon(Icons.close),
+                        label: Text("No"),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.brown.shade600,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
+                  const SizedBox(height: 30),
+                  Text(
+                    "DogDex identification is by no means 100% accurate.\nIf information it provides looks innacurate it probably is.\nAlways make sure to double check",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11
+                    ),
+                  )
                 ],
               ] else ...[
                 const SizedBox(height: 37),
@@ -532,6 +556,7 @@ class DogCollectionScreen extends StatefulWidget {
 
 class _DogCollectionScreenState extends State<DogCollectionScreen> {
   bool advanced = false;
+  String commonality = "very_common";
   late Future<Map<String, String>> _savedDogImages;
   final List<GlobalKey> globalKeys = [];
   String? _scrollToImageKey;
@@ -541,6 +566,11 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
   void initState() {
     super.initState();
     _savedDogImages = loadSavedDogImages();
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() {
+        commonality = prefs.getString('commonality') ?? "very_common";
+      });
+    });
   }
 
   @override
@@ -562,7 +592,14 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
         backgroundColor: Colors.brown.shade300,
         foregroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(onPressed: () async {await _launchURL("https://github.com/twig46/dogdex/issues/new/choose");} , icon: Icon(Icons.flag)),
+        leading: IconButton(
+          onPressed: () async {
+            await _launchURL(
+              "https://github.com/twig46/dogdex/issues/new/choose",
+            );
+          },
+          icon: Icon(Icons.bug_report),
+        ),
         actions: <Widget>[
           IconButton(
             onPressed: () {
@@ -576,30 +613,64 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
             onPressed: () {
               Navigator.of(context)
                   .push(
-                MaterialPageRoute(
-                  builder: (context) => const DogUploadScreen(),
-                ),
-              )
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
+                    ),
+                  )
                   .then((result) {
-                setState(() {
-                  _savedDogImages = loadSavedDogImages();
-                  if (result is String) {
-                    advanced = true;
-                    _scrollToImageKey = result;
-                  }
-                });
-              });
+                    SharedPreferences.getInstance().then((prefs) {
+                      if (!mounted) return;
+                      setState(() {
+                        _savedDogImages = loadSavedDogImages();
+                        commonality =
+                            prefs.getString('commonality') ?? "very_common";
+                        if (result is String) {
+                          advanced = true;
+                          _scrollToImageKey = result;
+                        }
+                      });
+                    });
+                  });
             },
             icon: const Icon(Icons.camera_alt_rounded),
           ),
           const SizedBox(width: 10),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: 15),
+        child: SizedBox(
+          height: 80,
+          width: 80,
+          child: FloatingActionButton(
+            shape: CircleBorder(),
+            backgroundColor: Colors.brown.shade500,
+            foregroundColor: Colors.brown.shade50,
+            child: const Icon(
+              Icons.camera_alt,
+              size: 35,
+            ),
+            onPressed: () {
+              Navigator.of(context)
+                .push(
+                  MaterialPageRoute(
+                    builder: (context) => const DogUploadScreen(),
+                  ),
+                );
+            }
+          ),
+        ),
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: FutureBuilder<List<Object>>(
-            future: Future.wait<Object>([dogClasses, apiDogs, _savedDogImages]),
+            future: Future.wait<Object>([
+              dogClasses,
+              dogNamesByCommonality,
+              _savedDogImages,
+            ]),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return Column(
@@ -622,11 +693,28 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
               }
 
               final breeds = snapshot.data![0] as Map<int, String>;
-              final allowedBreeds = (snapshot.data![1] as List<String>).toSet();
+              final commonalityMap = snapshot.data![1] as Map<String, Set<String>>;
               final savedImages = snapshot.data![2] as Map<String, String>;
+
+              Set<String> allowedForCommonality(String selectedCommonality) {
+                const order = [
+                  "very_common",
+                  "common",
+                  "rarer",
+                  "hyper_niche",
+                ];
+                final maxIndex = order.indexOf(selectedCommonality);
+                final clampedMaxIndex = maxIndex >= 0 ? maxIndex : 0;
+                final allowed = <String>{};
+                for (var i = 0; i <= clampedMaxIndex; i++) {
+                  allowed.addAll(commonalityMap[order[i]] ?? const <String>{});
+                }
+                return allowed;
+              }
 
               var sortedIds = breeds.keys.toList();
               if (!advanced) {
+                final allowedBreeds = allowedForCommonality(commonality);
                 sortedIds = sortedIds
                     .where((id) => allowedBreeds.contains(breeds[id]))
                     .toList();
@@ -653,14 +741,20 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
 
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (_scrollController.hasClients) {
-                      final row = indexToScroll ~/ 2; // crossAxisCount = 2
-                      final maxExtent = _scrollController.position.maxScrollExtent;
-                      final rows = (sortedIds.length / 2).ceil().clamp(1, 1000000);
+                      final row = indexToScroll ~/ 2;
+                      final maxExtent =
+                          _scrollController.position.maxScrollExtent;
+                      final rows = (sortedIds.length / 2).ceil().clamp(
+                        1,
+                        1000000,
+                      );
                       final double rowHeight = rows > 1
                           ? (maxExtent / (rows - 1))
                           : 0.0;
-                      final double offset = (row * rowHeight)
-                          .clamp(0.0, maxExtent);
+                      final double offset = (row * rowHeight).clamp(
+                        0.0,
+                        maxExtent,
+                      );
 
                       _scrollController.animateTo(
                         offset,
@@ -671,7 +765,9 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                   });
                 } else {
                   if (kDebugMode) {
-                    debugPrint('DogCollectionScreen: no tile found for key $_scrollToImageKey');
+                    debugPrint(
+                      'DogCollectionScreen: no tile found for key $_scrollToImageKey',
+                    );
                   }
                 }
 
@@ -773,6 +869,7 @@ class DogInfoScreen extends StatefulWidget {
 
 class _DogInfoScreenState extends State<DogInfoScreen> {
   late Future<Map<String, dynamic>> dogInfo;
+  bool imperial = false;
 
   Future<Map<String, dynamic>> _getInfo() async {
     final dogBreed = await dogClasses;
@@ -809,10 +906,7 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
     }
 
     if (match == null) {
-      return <String, dynamic>{
-        'name': breedName,
-        'imagePath': imagePath,
-      };
+      return <String, dynamic>{'name': breedName, 'imagePath': imagePath};
     }
 
     final result = Map<String, dynamic>.from(match);
@@ -822,13 +916,26 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
     return result;
   }
 
+  List<String> measurementParser(Map<String, dynamic> data, String field) {
+    String value = data[field][imperial ? 'imperial' : 'metric'];
+    final unit = imperial
+        ? (field == 'height' ? 'in' : 'lbs')
+        : (field == 'height' ? 'cm' : 'kg');
+    if (value.contains("Male")) {
+      return value.split(";").map((w) => "$w$unit").toList();
+    }
+    return ["$value$unit"];
+  }
+
   @override
   void initState() {
     super.initState();
     dogInfo = _getInfo();
-    if (kDebugMode) {
-      debugPrint("Screen initialized for breed: ${widget.dogNum}");
-    }
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() {
+        imperial = prefs.getBool('imperial') ?? false;
+      });
+    });
   }
 
   @override
@@ -871,203 +978,347 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
               }
               final data = snapshot.data ?? {};
               return SingleChildScrollView(
+                clipBehavior: Clip.none,
                 child: Column(
                   children: [
-                  Container(
-                    width: 300,
-                    height: 300,
-                    decoration: BoxDecoration(
-                      color: Colors.brown.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.brown.shade300,
-                        width: 3,
-                        style: BorderStyle.solid,
+                    Container(
+                      width: 300,
+                      height: 300,
+                      decoration: BoxDecoration(
+                        color: Colors.brown.shade100,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.brown.shade300,
+                          width: 3,
+                          style: BorderStyle.solid,
+                        ),
                       ),
-                    ),
-                    child: () {
-                      final imagePath = data['imagePath'] as String?;
-                      if (imagePath != null) {
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: Image.file(
-                            File(imagePath),
-                            height: 300,
-                            fit: BoxFit.cover,
-                          ),
-                        );
-                      }
-
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.pets,
-                            size: 80,
-                            color: Colors.brown.shade300,
-                          ),
-                          const SizedBox(height: 16),
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8.0),
-                            child: Text(
-                              "Undiscovered :3",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.brown.shade400,
-                                fontWeight: FontWeight.w500,
-                              ),
+                      child: () {
+                        final imagePath = data['imagePath'] as String?;
+                        if (imagePath != null) {
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Image.file(
+                              File(imagePath),
+                              height: 300,
+                              fit: BoxFit.cover,
                             ),
-                          ),
-                        ],
-                      );
-                    }(),
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.brown.shade400,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      data["name"] as String? ?? 'Unknown',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                  ),
+                          );
+                        }
 
-
-
-
-                  const SizedBox(height: 15),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 15,
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          spacing: 15,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
-                            decoration: BoxDecoration(
-                              color: Colors.brown.shade100,
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(
-                                color: Colors.brown.shade100,
-                                width: 15,
-                                style: BorderStyle.solid,
+                            Icon(
+                              Icons.pets,
+                              size: 80,
+                              color: Colors.brown.shade300,
+                            ),
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                              ),
+                              child: Text(
+                                "Undiscovered :3",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.brown.shade400,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
-                            child: Column(
+                          ],
+                        );
+                      }(),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.brown.shade400,
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Text(
+                        data["name"] as String? ?? 'Unknown',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
+
+                    if (data["description"] != null) ...[
+                      const SizedBox(height: 30),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.brown.shade200,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.brown.shade200,
+                              spreadRadius: 15,
+                              blurRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              spacing: 15,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.brown.shade400,
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                  child: Text(
-                                    "Height",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 2,
-                                    ),
+                                Expanded(
+                                  flex: 43,
+                                  child: Column(
+                                    spacing: 15,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.brown.shade100,
+                                          borderRadius: BorderRadius.circular(15),
+                                          border: Border.all(
+                                            color: Colors.brown.shade100,
+                                            width: 15,
+                                            style: BorderStyle.solid,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 20,
+                                                vertical: 10,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.brown.shade400,
+                                                borderRadius:
+                                                    BorderRadius.circular(30),
+                                              ),
+                                              child: Text(
+                                                "Height",
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                  letterSpacing: 2,
+                                                ),
+                                              ),
+                                            ),
+                                            for (String h in measurementParser(data, 'height')) Text(h),
+                                            const SizedBox(height: 15),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 20,
+                                                vertical: 10,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.brown.shade400,
+                                                borderRadius:
+                                                    BorderRadius.circular(30),
+                                              ),
+                                              child: Text(
+                                                "Weight",
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                  letterSpacing: 2,
+                                                ),
+                                              ),
+                                            ),
+                                            for (String w in measurementParser(data, 'weight')) Text(w),
+                                          ],
+                                        ),
+                                      ),
+                                      // Container(
+                                      //   decoration: BoxDecoration(
+                                      //     color: Colors.brown.shade100,
+                                      //     borderRadius: BorderRadius.circular(15),
+                                      //     border: Border.all(
+                                      //       color: Colors.brown.shade100,
+                                      //       width: 15,
+                                      //       style: BorderStyle.solid,
+                                      //     ),
+                                      //   ),
+                                      //   child: Column(
+                                      //     children: [
+                                      //       Row(
+                                      //         mainAxisAlignment: MainAxisAlignment.center,
+                                      //         children: [
+                                      //           SizedBox(
+                                      //             width: 32,
+                                      //             child: Text(
+                                      //               "in",
+                                      //               textAlign: TextAlign.center,
+                                      //               style: TextStyle(
+                                      //                 fontWeight: FontWeight(500),
+                                      //                 color: Colors.brown.shade500
+                                      //               ),
+                                      //             ),
+                                      //           ),
+                                      //           Switch(
+                                      //             activeThumbColor: Colors.brown.shade300,
+                                      //             value: !imperial,
+                                      //             onChanged: (bool value) async {
+                                      //               final prefs = await SharedPreferences.getInstance();
+                                      //               setState(() {
+                                      //                 imperial = !value;
+                                      //               });
+                                      //               await prefs.setBool('imperial', imperial);
+                                      //             }
+                                      //           ),
+                                      //           SizedBox(
+                                      //             width: 32,
+                                      //             child: Text(
+                                      //               "cm",
+                                      //               textAlign: TextAlign.center,
+                                      //               style: TextStyle(
+                                      //                 fontWeight: FontWeight(500),
+                                      //                 color: Colors.brown.shade500
+                                      //               ),
+                                      //             ),
+                                      //           ),
+                                      //         ],
+                                      //       )
+                                      //     ],
+                                      //   ),
+                                      // ),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.brown.shade100,
+                                          borderRadius: BorderRadius.circular(15),
+                                          border: Border.all(
+                                            color: Colors.brown.shade100,
+                                            width: 15,
+                                            style: BorderStyle.solid,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 20,
+                                                vertical: 10,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.brown.shade400,
+                                                borderRadius:
+                                                    BorderRadius.circular(30),
+                                              ),
+                                              child: Text(
+                                                "Lifespan",
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                  letterSpacing: 2,
+                                                ),
+                                              ),
+                                            ),
+                                            Text("${data['life_span']} years"),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  "${data['height']['metric']}cm"
-                                ),
-                                const SizedBox(height: 15),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
+                                Expanded(
+                                  flex: 55,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.brown.shade100,
+                                          borderRadius: BorderRadius.circular(15),
+                                          border: Border.all(
+                                            color: Colors.brown.shade100,
+                                            width: 15,
+                                            style: BorderStyle.solid,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 20,
+                                                vertical: 10,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.brown.shade400,
+                                                borderRadius:
+                                                    BorderRadius.circular(30),
+                                              ),
+                                              child: Text(
+                                                "Temperament",
+                                                textAlign: TextAlign.center,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                  letterSpacing: 2,
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              data["temperament"],
+                                              textAlign: TextAlign.left,
+                                              softWrap: true,
+                                            ),
+                                            const SizedBox(height: 15),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 20,
+                                                vertical: 10,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.brown.shade400,
+                                                borderRadius:
+                                                    BorderRadius.circular(30),
+                                              ),
+                                              child: Text(
+                                                "Description",
+                                                textAlign: TextAlign.center,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                  letterSpacing: 2,
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              data["description"],
+                                              textAlign: TextAlign.left,
+                                              softWrap: true,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.brown.shade400,
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                  child: Text(
-                                    "Weight",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 2,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  "${data['weight']['metric']}kg"
-                                  ),
-                                ],
-                              ),
-                            ),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.brown.shade100,
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(
-                                color: Colors.brown.shade100,
-                                width: 15,
-                                style: BorderStyle.solid,
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.brown.shade400,
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                  child: Text(
-                                    "Lifespan",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 2,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  "${data['life_span']} years"
                                 ),
                               ],
                             ),
-                          ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        flex: 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
+                            const SizedBox(height: 15),
                             Container(
                               decoration: BoxDecoration(
                                 color: Colors.brown.shade100,
@@ -1082,20 +1333,20 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 12,
+                                      horizontal: 20,
+                                      vertical: 10,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Colors.brown.shade400,
                                       borderRadius: BorderRadius.circular(30),
                                     ),
                                     child: Text(
-                                      "Temperament",
+                                      "History",
                                       textAlign: TextAlign.center,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: 18,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
                                         letterSpacing: 2,
@@ -1103,35 +1354,7 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                     ),
                                   ),
                                   Text(
-                                    data["temperament"],
-                                    textAlign: TextAlign.left,
-                                    softWrap: true,
-                                  ),
-                                  const SizedBox(height: 15),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.brown.shade400,
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                    child: Text(
-                                      "Description",
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                        letterSpacing: 2,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    data["description"],
+                                    data["history"],
                                     textAlign: TextAlign.left,
                                     softWrap: true,
                                   ),
@@ -1141,39 +1364,263 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                           ],
                         ),
                       ),
+                    ] else ...[
+                      const SizedBox(height: 15),
+                      Text(
+                        "Sorry, we currently don't have any\ninformation about this dog.\nFeel free to look it up.",
+                        textAlign: TextAlign.center,
+                      )
                     ],
-                  ),
-                  
-
-
-
-
-                  // if (data['description'] != null) ...[
-                  //   const SizedBox(height: 16),
-                  //   Text(
-                  //     data['description'] as String,
-                  //     textAlign: TextAlign.justify,
-                  //     style: TextStyle(
-                  //       fontSize: 16,
-                  //       color: Colors.brown.shade800,
-                  //     ),
-                  //   ),
-                  // ],
-
-
-
-
-
-
-
-
-
-              
-                ],
-              ),
-            );
+                    
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              );
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool imperial = false;
+  String commonality = "very_common";
+
+  final List<DropdownMenuItem<String>> commonalityOptions = [
+    DropdownMenuItem<String>(
+      value: "very_common",
+      child: Text("Very Common"),
+    ),
+    DropdownMenuItem<String>(
+      value: "common",
+      child: Text("Common"),
+    ),
+    DropdownMenuItem<String>(
+      value: "rarer",
+      child: Text("Rarer"),
+    ),
+    DropdownMenuItem<String>(
+      value: "hyper_niche",
+      child: Text("Hyper Niche"),
+    )
+  ];
+  
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() {
+        imperial = prefs.getBool('imperial') ?? false;
+        commonality = prefs.getString('commonality') ?? "very_common";
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.brown.shade50,
+      appBar: AppBar(
+        title: const Text(
+          '🐕 Settings',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.brown.shade300,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.brown.withValues(alpha: 0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.file(
+                    File("assets/icon.png"),
+                    height: 300,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "Winner of \"Cutest Dog of All Time\" Award, Kora",
+                style: TextStyle(
+                  fontStyle: FontStyle.italic
+                ),
+              ),
+              const SizedBox(height: 15),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.brown.shade200,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    width: 15,
+                    color: Colors.brown.shade200
+                  )
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.brown.shade100,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                          color: Colors.brown.shade100,
+                          width: 15
+                        )
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 75,
+                            child: Text(
+                              imperial ? "Imperial" : "Metric",
+                              style: TextStyle(
+                                fontWeight: FontWeight(500),
+                                color: Colors.brown.shade700
+                              ),
+                            ),
+                          ),
+                          Switch(
+                            activeThumbColor: Colors.brown.shade300,
+                            value: !imperial,
+                            onChanged: (bool value) async {
+                              final prefs = await SharedPreferences.getInstance();
+                              setState(() {
+                                imperial = !value;
+                              });
+                              await prefs.setBool('imperial', imperial);
+                            }
+                          ),
+                        ],
+                      )
+                    ),
+                    const SizedBox(height: 15),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.brown.shade100,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                          color: Colors.brown.shade100,
+                          width: 15
+                        )
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 150,
+                            child: Text(
+                              "Dog Commonality",
+                              style: TextStyle(
+                                fontWeight: FontWeight(500),
+                                color: Colors.brown.shade700
+                              ),
+                            ),
+                          ),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.brown.shade200,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.brown.shade200,
+                                width: 5
+                              )
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.only(left: 10, right: 5),
+                              child: DropdownButton<String>(
+                                items: commonalityOptions,
+                                value: commonality,
+                                underline: Container(height: 0),
+                                onChanged: (String? value) async {
+                                  if (value == null) return;
+                                  final prefs = await SharedPreferences.getInstance();
+                                  setState(() {
+                                    commonality = value;
+                                  });
+                                  await prefs.setString('commonality', commonality);
+                                },
+                              ),
+                            )
+                          ),
+                        ],
+                      )
+                    ),
+                    const SizedBox(height: 15),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.brown.shade100,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                          color: Colors.brown.shade100,
+                          width: 15
+                        )
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Column(
+                            children: [
+                              Text(
+                                "Found a bug or got a really cool idea for the app?\nSubmit it on my GitHub",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight(500),
+                                  color: Colors.brown.shade700
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              FilledButton.icon(
+                                onPressed: () async {
+                                  await _launchURL(
+                                    "https://github.com/twig46/dogdex/issues/new/choose",
+                                  );
+                                },
+                                icon: const Icon(Icons.bug_report),
+                                label: Text('Submit an Issue'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.brown.shade600,
+                                  textStyle: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          )
         ),
       ),
     );
