@@ -1605,7 +1605,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Column(
                             children: [
                               Text(
-                                "Found a bug or got a really cool idea for the app?\nSubmit it on my GitHub",
+                                "Found a bug or have a really cool\nidea for a feature?\nSubmit it on my GitHub",
+                                softWrap: true,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontWeight: FontWeight(500),
