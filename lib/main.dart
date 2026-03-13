@@ -49,7 +49,8 @@ Future<Map<String, Set<String>>> loadDogNamesByCommonality() async {
   final jsonString = await rootBundle.loadString('assets/dog_names.json');
   final Map<String, dynamic> data = json.decode(jsonString);
   return data.map(
-    (key, value) => MapEntry(key, (value as List<dynamic>).cast<String>().toSet()),
+    (key, value) =>
+        MapEntry(key, (value as List<dynamic>).cast<String>().toSet()),
   );
 }
 
@@ -131,7 +132,7 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const DogCollectionScreen(),
+      home: const DogCollectionScreen(showOnlySaved: false),
     );
   }
 }
@@ -531,10 +532,8 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                   Text(
                     "DogDex identification is by no means 100% accurate.\nIf information it provides looks innacurate it probably is.\nAlways make sure to double check",
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11
-                    ),
-                  )
+                    style: TextStyle(fontSize: 11),
+                  ),
                 ],
               ] else ...[
                 const SizedBox(height: 37),
@@ -548,16 +547,16 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
 }
 
 class DogCollectionScreen extends StatefulWidget {
-  const DogCollectionScreen({super.key});
+  final bool showOnlySaved;
+  const DogCollectionScreen({super.key, required this.showOnlySaved});
 
   @override
   State<DogCollectionScreen> createState() => _DogCollectionScreenState();
 }
 
 class _DogCollectionScreenState extends State<DogCollectionScreen> {
-  bool advanced = false;
   String commonality = "very_common";
-  bool showOnlySaved = false;
+  late bool showOnlySaved;
   late Future<Map<String, String>> _savedDogImages;
   final List<GlobalKey> globalKeys = [];
   String? _scrollToImageKey;
@@ -567,6 +566,7 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
   void initState() {
     super.initState();
     _savedDogImages = loadSavedDogImages();
+    showOnlySaved = widget.showOnlySaved;
     SharedPreferences.getInstance().then((prefs) {
       setState(() {
         commonality = prefs.getString('commonality') ?? "very_common";
@@ -593,45 +593,50 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
         backgroundColor: Colors.brown.shade300,
         foregroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          onPressed: () {
-            Navigator.of(context)
-                .push(
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                )
-                .then((result) {
-                  SharedPreferences.getInstance().then((prefs) {
-                    if (!mounted) return;
-                    setState(() {
-                      commonality =
-                          prefs.getString('commonality') ?? "very_common";
-                    });
-                  });
-                });
-          },
-          icon: Icon(Icons.settings),
-        ),
+        leading: !showOnlySaved
+            ? IconButton(
+                onPressed: () {
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (context) => const SettingsScreen(),
+                        ),
+                      )
+                      .then((result) {
+                        SharedPreferences.getInstance().then((prefs) {
+                          if (!mounted) return;
+                          setState(() {
+                            commonality =
+                                prefs.getString('commonality') ?? "very_common";
+                          });
+                        });
+                      });
+                },
+                icon: Icon(Icons.settings),
+              )
+            : null,
         actions: <Widget>[
+          // IconButton(
+          //   onPressed: () {
+          //     setState(() {
+          //       advanced = !advanced;
+          //     });
+          //   },
+          //   icon: Icon(advanced ? Icons.check_circle : Icons.circle_outlined),
+          // ),
           IconButton(
             onPressed: () {
-              setState(() {
-                advanced = !advanced;
-              });
-            },
-            icon: Icon(advanced ? Icons.check_circle : Icons.circle_outlined),
-          ),
-          IconButton(
-            onPressed: () {
-              setState(() {
-                showOnlySaved = !showOnlySaved;
-                if (showOnlySaved) {
-                  advanced = true;
-                } else {
-                  advanced = false;
-                }
-              });
+              if (showOnlySaved) {
+                Navigator.of(context).pop();
+                return;
+              }
+
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      const DogCollectionScreen(showOnlySaved: true),
+                ),
+              );
             },
             icon: Icon(showOnlySaved ? Icons.photo : Icons.photo_outlined),
           ),
@@ -640,7 +645,7 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: 15),
+        padding: EdgeInsets.only(bottom: 0),
         child: SizedBox(
           height: 80,
           width: 80,
@@ -648,30 +653,26 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
             shape: CircleBorder(),
             backgroundColor: Colors.brown.shade500,
             foregroundColor: Colors.brown.shade50,
-            child: const Icon(
-              Icons.camera_alt,
-              size: 35,
-            ),
+            child: const Icon(Icons.camera_alt, size: 35),
             onPressed: () {
               Navigator.of(context)
-                .push(
-                  MaterialPageRoute(
-                    builder: (context) => const DogUploadScreen(),
-                  ),
-                )
-                .then((result) {
-                  SharedPreferences.getInstance().then((prefs) {
-                    if (!mounted) return;
-                    setState(() {
-                      _savedDogImages = loadSavedDogImages();
-                      if (result is String) {
-                        advanced = true;
-                        _scrollToImageKey = result;
-                      }
+                  .push(
+                    MaterialPageRoute(
+                      builder: (context) => const DogUploadScreen(),
+                    ),
+                  )
+                  .then((result) {
+                    SharedPreferences.getInstance().then((prefs) {
+                      if (!mounted) return;
+                      setState(() {
+                        _savedDogImages = loadSavedDogImages();
+                        if (result is String) {
+                          _scrollToImageKey = result;
+                        }
+                      });
                     });
                   });
-                });
-            }
+            },
           ),
         ),
       ),
@@ -710,12 +711,7 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
               final savedImages = snapshot.data![2] as Map<String, String>;
 
               Set<String> allowedForCommonality(String selectedCommonality) {
-                const order = [
-                  "very_common",
-                  "common",
-                  "rarer",
-                  "hyper_niche",
-                ];
+                const order = ["very_common", "common", "rarer", "hyper_niche"];
                 final maxIndex = order.indexOf(selectedCommonality);
                 final clampedMaxIndex = maxIndex >= 0 ? maxIndex : 0;
                 final allowed = <String>{};
@@ -726,15 +722,34 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
               }
 
               var sortedIds = breeds.keys.toList();
-              if (!advanced) {
-                final allowedBreeds = allowedForCommonality(commonality);
-                sortedIds = sortedIds
-                    .where((id) => allowedBreeds.contains(breeds[id]))
-                    .toList();
-              }
+              final pendingScrollKey = _scrollToImageKey;
+              final allowedBreeds = allowedForCommonality(commonality);
+              sortedIds = sortedIds.where((id) {
+                final breedName = breeds[id];
+                if (breedName == null) return false;
+
+                if (showOnlySaved) {
+                  return true;
+                }
+
+                if (allowedBreeds.contains(breedName)) {
+                  return true;
+                }
+
+                if (pendingScrollKey != null &&
+                    _toSnakeCase(breedName) == pendingScrollKey) {
+                  return true;
+                }
+
+                return false;
+              }).toList();
+
               if (showOnlySaved) {
                 sortedIds = sortedIds
-                    .where((id) => savedImages.containsKey(_toSnakeCase(breeds[id]!)))
+                    .where(
+                      (id) =>
+                          savedImages.containsKey(_toSnakeCase(breeds[id]!)),
+                    )
                     .toList();
               }
               sortedIds.sort((a, b) => breeds[a]!.compareTo(breeds[b]!));
@@ -743,12 +758,12 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                 ..clear()
                 ..addAll(List.generate(sortedIds.length, (_) => GlobalKey()));
 
-              if (_scrollToImageKey != null) {
+              if (pendingScrollKey != null) {
                 int? targetIndex;
                 for (var index = 0; index < sortedIds.length; index++) {
                   final breedName = breeds[sortedIds[index]]!;
                   final imageKey = _toSnakeCase(breedName);
-                  if (imageKey == _scrollToImageKey) {
+                  if (imageKey == pendingScrollKey) {
                     targetIndex = index;
                     break;
                   }
@@ -758,33 +773,67 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                   final int indexToScroll = targetIndex;
 
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (_scrollController.hasClients) {
-                      final row = indexToScroll ~/ 2;
+                    void tryScroll(int attemptsRemaining) {
+                      if (!mounted || !_scrollController.hasClients) return;
+                      if (indexToScroll >= globalKeys.length) return;
+
+                      final targetContext =
+                          globalKeys[indexToScroll].currentContext;
+                      if (targetContext != null) {
+                        Scrollable.ensureVisible(
+                          targetContext,
+                          duration: const Duration(milliseconds: 500),
+                          alignment: 0.2,
+                          curve: Curves.easeInOut,
+                        );
+                        return;
+                      }
+
+                      if (attemptsRemaining <= 0) {
+                        if (kDebugMode) {
+                          debugPrint(
+                            'DogCollectionScreen: tile context unavailable for index $indexToScroll',
+                          );
+                        }
+                        return;
+                      }
+
                       final maxExtent =
                           _scrollController.position.maxScrollExtent;
-                      final rows = (sortedIds.length / 2).ceil().clamp(
-                        1,
-                        1000000,
-                      );
-                      final double rowHeight = rows > 1
-                          ? (maxExtent / (rows - 1))
-                          : 0.0;
-                      final double offset = (row * rowHeight).clamp(
-                        0.0,
-                        maxExtent,
-                      );
+                      if (maxExtent <= 0) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          tryScroll(attemptsRemaining - 1);
+                        });
+                        return;
+                      }
 
-                      _scrollController.animateTo(
-                        offset,
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeInOut,
-                      );
+                      final denominator = sortedIds.length <= 1
+                          ? 1
+                          : sortedIds.length - 1;
+                      final approximateOffset =
+                          (maxExtent * (indexToScroll / denominator))
+                              .clamp(0.0, maxExtent)
+                              .toDouble();
+
+                      _scrollController
+                          .animateTo(
+                            approximateOffset,
+                            duration: const Duration(milliseconds: 350),
+                            curve: Curves.easeInOut,
+                          )
+                          .then((_) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              tryScroll(attemptsRemaining - 1);
+                            });
+                          });
                     }
+
+                    tryScroll(4);
                   });
                 } else {
                   if (kDebugMode) {
                     debugPrint(
-                      'DogCollectionScreen: no tile found for key $_scrollToImageKey',
+                      'DogCollectionScreen: no tile found for key $pendingScrollKey',
                     );
                   }
                 }
@@ -1414,22 +1463,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String commonality = "very_common";
 
   final List<DropdownMenuItem<String>> commonalityOptions = [
-    DropdownMenuItem<String>(
-      value: "very_common",
-      child: Text("Very Common"),
-    ),
-    DropdownMenuItem<String>(
-      value: "common",
-      child: Text("Common"),
-    ),
-    DropdownMenuItem<String>(
-      value: "rarer",
-      child: Text("Rarer"),
-    ),
-    DropdownMenuItem<String>(
-      value: "hyper_niche",
-      child: Text("Hyper Niche"),
-    )
+    DropdownMenuItem<String>(value: "very_common", child: Text("Very Common")),
+    DropdownMenuItem<String>(value: "common", child: Text("Common")),
+    DropdownMenuItem<String>(value: "rarer", child: Text("Rarer")),
+    DropdownMenuItem<String>(value: "hyper_niche", child: Text("Hyper Niche")),
   ];
   
   @override
@@ -1507,8 +1544,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(
                           color: Colors.brown.shade100,
-                          width: 15
-                        )
+                          width: 15,
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1519,7 +1556,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               imperial ? "Imperial" : "Metric",
                               style: TextStyle(
                                 fontWeight: FontWeight(500),
-                                color: Colors.brown.shade700
+                                color: Colors.brown.shade700,
                               ),
                             ),
                           ),
@@ -1532,10 +1569,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 imperial = !value;
                               });
                               await prefs.setBool('imperial', imperial);
-                            }
+                            },
                           ),
                         ],
-                      )
+                      ),
                     ),
                     const SizedBox(height: 15),
                     Container(
@@ -1544,8 +1581,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(
                           color: Colors.brown.shade100,
-                          width: 15
-                        )
+                          width: 15,
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1556,7 +1593,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               "Dog Commonality",
                               style: TextStyle(
                                 fontWeight: FontWeight(500),
-                                color: Colors.brown.shade700
+                                color: Colors.brown.shade700,
                               ),
                             ),
                           ),
@@ -1566,8 +1603,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: Colors.brown.shade200,
-                                width: 5
-                              )
+                                width: 5,
+                              ),
                             ),
                             child: Padding(
                               padding: EdgeInsets.only(left: 10, right: 5),
@@ -1584,10 +1621,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   await prefs.setString('commonality', commonality);
                                 },
                               ),
-                            )
+                            ),
                           ),
                         ],
-                      )
+                      ),
                     ),
                     const SizedBox(height: 15),
                     Container(
@@ -1596,8 +1633,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(
                           color: Colors.brown.shade100,
-                          width: 15
-                        )
+                          width: 15,
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1610,7 +1647,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontWeight: FontWeight(500),
-                                  color: Colors.brown.shade700
+                                  color: Colors.brown.shade700,
                                 ),
                               ),
                               const SizedBox(height: 5),
@@ -1633,13 +1670,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ],
                           ),
                         ],
-                      )
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
-          )
+          ),
         ),
       ),
     );
