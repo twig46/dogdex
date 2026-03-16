@@ -348,7 +348,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                 ),
               ],
               const SizedBox(height: 20),
-              if (!_checking && !_serverUp) ...[
+              if (!_serverUp) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -359,7 +359,8 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: Text(
-                    "Cannot reach server",
+                    _checking ? "Checking for server"
+                    : "Cannot reach server",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 24,
@@ -1262,43 +1263,45 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                       //     ],
                                       //   ),
                                       // ),
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.brown.shade100,
-                                          borderRadius: BorderRadius.circular(15),
-                                          border: Border.all(
+                                      if (data["life_span"] != null) ...[
+                                        Container(
+                                          decoration: BoxDecoration(
                                             color: Colors.brown.shade100,
-                                            width: 15,
-                                            style: BorderStyle.solid,
+                                            borderRadius: BorderRadius.circular(15),
+                                            border: Border.all(
+                                              color: Colors.brown.shade100,
+                                              width: 15,
+                                              style: BorderStyle.solid,
+                                            ),
                                           ),
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 20,
-                                                vertical: 10,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.brown.shade400,
-                                                borderRadius:
-                                                    BorderRadius.circular(30),
-                                              ),
-                                              child: Text(
-                                                "Lifespan",
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                  letterSpacing: 2,
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 20,
+                                                  vertical: 10,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.brown.shade400,
+                                                  borderRadius:
+                                                      BorderRadius.circular(30),
+                                                ),
+                                                child: Text(
+                                                  "Lifespan",
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                    letterSpacing: 2,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Text("${data['life_span']} years"),
-                                          ],
+                                              Text("${data['life_span']} years"),
+                                            ],
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ],
                                   ),
                                 ),
