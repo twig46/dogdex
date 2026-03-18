@@ -1,3 +1,5 @@
+import 'package:encrypt/encrypt.dart' show RSAKeyParser;
+import 'package:pointycastle/asymmetric/api.dart';
 import 'dart:io';
 //import 'dart:developer';
 import 'dart:convert';
@@ -10,6 +12,13 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+Future<RSAPublicKey> loadPublicKey() async {
+  final String pemString = await rootBundle.loadString('assets/keys/public_key.pem');
+  final parser = RSAKeyParser();
+  final RSAPublicKey publicKey = parser.parse(pemString) as RSAPublicKey;
+  return publicKey;
+}
 
 final String apiUrl = "https://dog-api.tobyv.dev";
 
