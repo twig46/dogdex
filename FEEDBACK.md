@@ -1,2 +1,4 @@
 # Feedback
- - none currently
+ - use next most thought breed
+ - let user set breed
+ - 
