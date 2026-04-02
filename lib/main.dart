@@ -14,7 +14,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 Future<RSAPublicKey> loadPublicKey() async {
-  final String pemString = await rootBundle.loadString('assets/keys/public_key.pem');
+  final String pemString = await rootBundle.loadString(
+    'assets/keys/public_key.pem',
+  );
   final parser = RSAKeyParser();
   final RSAPublicKey publicKey = parser.parse(pemString) as RSAPublicKey;
   return publicKey;
@@ -157,15 +159,115 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
   File? _dogImage;
   bool _analyzing = false;
   bool _checking = true;
+  bool _correct = false;
+  bool _set = false;
   final ImagePicker _picker = ImagePicker();
   bool _serverUp = false;
   String? breed;
   double? confidence;
+  List<DropdownMenuEntry<String>> dogClassOptions = [];
+  List<String> get dogClassNames =>
+      dogClassOptions.map((entry) => entry.value).toList(growable: false);
+
+  Future<void> _loadDogClassOptions() async {
+    final classes = await dogClasses;
+    final breedNames = classes.values.toList()..sort();
+
+    if (!mounted) return;
+
+    setState(() {
+      dogClassOptions = breedNames
+          .map((name) => DropdownMenuEntry<String>(value: name, label: name))
+          .toList();
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    _loadDogClassOptions();
     checkServer();
+  }
+
+  Future<void> _showDogDialog(BuildContext context) async {
+    if (dogClassOptions.isEmpty) {
+      await _loadDogClassOptions();
+    }
+    if (!mounted) return;
+
+    String? newBreed = breed;
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Breed?"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "If you are unhappy with our guess you can change the estimated breed here",
+              ),
+              const SizedBox(height: 15),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.brown.shade200,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.brown.shade200, width: 5),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(left: 10, right: 5),
+                  child: DropdownMenu<String>(
+                    inputDecorationTheme: const InputDecorationTheme(
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                    width: 260,
+                    dropdownMenuEntries: dogClassOptions,
+                    initialSelection: dogClassNames.contains(newBreed)
+                        ? newBreed
+                        : null,
+                    onSelected: (String? value) {
+                      if (value == null) return;
+                      setState(() {
+                        newBreed = value;
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () => {
+                setState(() {
+                  _dogImage = null;
+                  _set = false;
+                  _correct = false;
+                }),
+                Navigator.pop(context),
+              },
+              child: Text("Don't add"),
+            ),
+            TextButton(
+              onPressed: () => {
+                setState(() {
+                  breed = newBreed;
+                  _set = true;
+                }),
+                Navigator.pop(context),
+              },
+              child: Text("Set"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -368,8 +470,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: Text(
-                    _checking ? "Checking for server"
-                    : "Cannot reach server",
+                    _checking ? "Checking for server" : "Cannot reach server",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 24,
@@ -446,7 +547,7 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                   Column(
                     children: [
                       Text(
-                        'We are ${(confidence as double).toStringAsFixed(1)}% certain',
+                        _set ? 'You are 100% certain' : 'We are ${(confidence as double).toStringAsFixed(1)}% certain',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -466,78 +567,148 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.brown.shade400,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      "Add to your collection?",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 2,
+                  if (!_correct) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 6,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    spacing: 15,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: () async {
-                          if (_dogImage == null || breed == null) {
-                            return;
-                          }
-                          final navigator = Navigator.of(context);
-                          final imageKey = _toSnakeCase(breed!);
-                          await saveImage(_dogImage!, imageKey);
-                          if (!mounted) return;
-                          navigator.pop(imageKey);
-                        },
-                        icon: const Icon(Icons.done),
-                        label: Text("Yes"),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.brown.shade600,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      decoration: BoxDecoration(
+                        color: Colors.brown.shade400,
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Text(
+                        "Is this correct?",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 2,
                         ),
                       ),
-                      FilledButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _dogImage = null;
-                          });
-                        },
-                        icon: const Icon(Icons.close),
-                        label: Text("No"),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.brown.shade600,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      spacing: 15,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: () async {
+                            setState(() {
+                              _correct = true;
+                            });
+                          },
+                          icon: const Icon(Icons.done),
+                          label: Text("Yes"),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.brown.shade600,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 16,
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
+                        FilledButton.icon(
+                          onPressed: () {
+                            _showDogDialog(context);
+                          },
+                          icon: const Icon(Icons.close),
+                          label: Text("No"),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.brown.shade600,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 16,
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 6,
                       ),
-                    ],
-                  ),
+                      decoration: BoxDecoration(
+                        color: Colors.brown.shade400,
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Text(
+                        "Add to your collection?",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      spacing: 15,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: () async {
+                            if (_dogImage == null || breed == null) {
+                              return;
+                            }
+                            final navigator = Navigator.of(context);
+                            final imageKey = _toSnakeCase(breed!);
+                            await saveImage(_dogImage!, imageKey);
+                            if (!mounted) return;
+                            navigator.pop(imageKey);
+                          },
+                          icon: const Icon(Icons.done),
+                          label: Text("Yes"),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.brown.shade600,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 16,
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        FilledButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _dogImage = null;
+                              _set = false;
+                              _correct = false;
+                            });
+                          },
+                          icon: const Icon(Icons.close),
+                          label: Text("No"),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.brown.shade600,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 16,
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 30),
                   Text(
                     "DogDex identification is by no means 100% accurate.\nIf information it provides looks innacurate it probably is.\nAlways make sure to double check",
@@ -546,7 +717,27 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                   ),
                 ],
               ] else ...[
-                const SizedBox(height: 37),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.brown.shade400,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    "Analyzing",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
@@ -717,7 +908,8 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
               }
 
               final breeds = snapshot.data![0] as Map<int, String>;
-              final commonalityMap = snapshot.data![1] as Map<String, Set<String>>;
+              final commonalityMap =
+                  snapshot.data![1] as Map<String, Set<String>>;
               final savedImages = snapshot.data![2] as Map<String, String>;
 
               Set<String> allowedForCommonality(String selectedCommonality) {
@@ -1162,7 +1354,9 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                       Container(
                                         decoration: BoxDecoration(
                                           color: Colors.brown.shade100,
-                                          borderRadius: BorderRadius.circular(15),
+                                          borderRadius: BorderRadius.circular(
+                                            15,
+                                          ),
                                           border: Border.all(
                                             color: Colors.brown.shade100,
                                             width: 15,
@@ -1172,10 +1366,11 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                         child: Column(
                                           children: [
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 20,
-                                                vertical: 10,
-                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 20,
+                                                    vertical: 10,
+                                                  ),
                                               decoration: BoxDecoration(
                                                 color: Colors.brown.shade400,
                                                 borderRadius:
@@ -1192,13 +1387,18 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                                 ),
                                               ),
                                             ),
-                                            for (String h in measurementParser(data, 'height')) Text(h),
+                                            for (String h in measurementParser(
+                                              data,
+                                              'height',
+                                            ))
+                                              Text(h),
                                             const SizedBox(height: 15),
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 20,
-                                                vertical: 10,
-                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 20,
+                                                    vertical: 10,
+                                                  ),
                                               decoration: BoxDecoration(
                                                 color: Colors.brown.shade400,
                                                 borderRadius:
@@ -1215,7 +1415,11 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                                 ),
                                               ),
                                             ),
-                                            for (String w in measurementParser(data, 'weight')) Text(w),
+                                            for (String w in measurementParser(
+                                              data,
+                                              'weight',
+                                            ))
+                                              Text(w),
                                           ],
                                         ),
                                       ),
@@ -1276,7 +1480,9 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                         Container(
                                           decoration: BoxDecoration(
                                             color: Colors.brown.shade100,
-                                            borderRadius: BorderRadius.circular(15),
+                                            borderRadius: BorderRadius.circular(
+                                              15,
+                                            ),
                                             border: Border.all(
                                               color: Colors.brown.shade100,
                                               width: 15,
@@ -1286,10 +1492,11 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                           child: Column(
                                             children: [
                                               Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 20,
-                                                  vertical: 10,
-                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 20,
+                                                      vertical: 10,
+                                                    ),
                                                 decoration: BoxDecoration(
                                                   color: Colors.brown.shade400,
                                                   borderRadius:
@@ -1306,7 +1513,9 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                                   ),
                                                 ),
                                               ),
-                                              Text("${data['life_span']} years"),
+                                              Text(
+                                                "${data['life_span']} years",
+                                              ),
                                             ],
                                           ),
                                         ),
@@ -1323,7 +1532,9 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                       Container(
                                         decoration: BoxDecoration(
                                           color: Colors.brown.shade100,
-                                          borderRadius: BorderRadius.circular(15),
+                                          borderRadius: BorderRadius.circular(
+                                            15,
+                                          ),
                                           border: Border.all(
                                             color: Colors.brown.shade100,
                                             width: 15,
@@ -1333,10 +1544,11 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                         child: Column(
                                           children: [
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 20,
-                                                vertical: 10,
-                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 20,
+                                                    vertical: 10,
+                                                  ),
                                               decoration: BoxDecoration(
                                                 color: Colors.brown.shade400,
                                                 borderRadius:
@@ -1362,10 +1574,11 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                             ),
                                             const SizedBox(height: 15),
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 20,
-                                                vertical: 10,
-                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 20,
+                                                    vertical: 10,
+                                                  ),
                                               decoration: BoxDecoration(
                                                 color: Colors.brown.shade400,
                                                 borderRadius:
@@ -1448,9 +1661,9 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                       Text(
                         "Sorry, we currently don't have any\ninformation about this dog.\nFeel free to look it up.",
                         textAlign: TextAlign.center,
-                      )
+                      ),
                     ],
-                    
+
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -1480,7 +1693,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     DropdownMenuItem<String>(value: "rarer", child: Text("Rarer")),
     DropdownMenuItem<String>(value: "hyper_niche", child: Text("Hyper Niche")),
   ];
-  
+
   @override
   void initState() {
     super.initState();
@@ -1534,19 +1747,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 4),
               Text(
                 "Winner of \"Cutest Dog of All Time\" Award, Kora",
-                style: TextStyle(
-                  fontStyle: FontStyle.italic
-                ),
+                style: TextStyle(fontStyle: FontStyle.italic),
               ),
               const SizedBox(height: 15),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.brown.shade200,
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(
-                    width: 15,
-                    color: Colors.brown.shade200
-                  )
+                  border: Border.all(width: 15, color: Colors.brown.shade200),
                 ),
                 child: Column(
                   children: [
@@ -1576,7 +1784,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             activeThumbColor: Colors.brown.shade300,
                             value: !imperial,
                             onChanged: (bool value) async {
-                              final prefs = await SharedPreferences.getInstance();
+                              final prefs =
+                                  await SharedPreferences.getInstance();
                               setState(() {
                                 imperial = !value;
                               });
@@ -1626,11 +1835,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 underline: Container(height: 0),
                                 onChanged: (String? value) async {
                                   if (value == null) return;
-                                  final prefs = await SharedPreferences.getInstance();
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
                                   setState(() {
                                     commonality = value;
                                   });
-                                  await prefs.setString('commonality', commonality);
+                                  await prefs.setString(
+                                    'commonality',
+                                    commonality,
+                                  );
                                 },
                               ),
                             ),
