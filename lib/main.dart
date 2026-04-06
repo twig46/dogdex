@@ -143,7 +143,57 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
+      builder: (context, child) {
+        if (child == null) {
+          return const SizedBox.shrink();
+        }
+        return _HorizontalWidthScale(child: child);
+      },
       home: const DogCollectionScreen(showOnlySaved: false),
+    );
+  }
+}
+
+class _HorizontalWidthScale extends StatelessWidget {
+  const _HorizontalWidthScale({required this.child});
+
+  final Widget child;
+  static const double _designWidth = 430;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedWidth ||
+            !constraints.hasBoundedHeight ||
+            constraints.maxWidth <= 0 ||
+            constraints.maxHeight <= 0) {
+          return child;
+        }
+
+        final width = constraints.maxWidth;
+        final scaleX = width > _designWidth ? width / _designWidth : 1.0;
+
+        if (scaleX <= 1.0) {
+          return child;
+        }
+
+        final scaledChildHeight = constraints.maxHeight / scaleX;
+
+        return ClipRect(
+          child: SizedBox.expand(
+            child: FittedBox(
+              fit: BoxFit.fitWidth,
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: _designWidth,
+                height: scaledChildHeight,
+                child: child,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -395,8 +445,8 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Center(
+      body: Center(
+        child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
