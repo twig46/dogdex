@@ -22,7 +22,7 @@ Future<RSAPublicKey> loadPublicKey() async {
   return publicKey;
 }
 
-final String apiUrl = "https://dog-api.tobyv.dev";
+String apiUrl = "https://dog-api.tobyv.dev";
 
 const String API_KEY_ENV = String.fromEnvironment(
   'API_KEY',
@@ -768,27 +768,29 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
                     ),
                   ],
                 ] else ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.brown.shade400,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      "Analyzing",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 2,
+                  if (_analyzing) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.brown.shade400,
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Text(
+                        "Analyzing",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 2,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ],
             ),
@@ -1770,6 +1772,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: Colors.brown.shade300,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: GestureDetector(
+              onTap: () => {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const DangerScreen(),
+                  ),
+                )
+              },
+            ),
+          )
+        ],
       ),
       body: SingleChildScrollView(
         child: Center(
@@ -1951,6 +1968,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DangerScreen extends StatefulWidget {
+  const DangerScreen({super.key});
+
+  @override
+  State<DangerScreen> createState() => _DangerScreenState();
+}
+
+class _DangerScreenState extends State<DangerScreen> {
+  final TextEditingController _urlController = TextEditingController();
+  @override
+  void dispose() {
+    _urlController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.brown.shade50,
+      appBar: AppBar(
+        title: const Text(
+          '⚠️ Danger',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.brown.shade300,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Enter API URL',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.brown.shade800,
+                  ),
+                ),
+                Text("(Do not set if you don't know what this means)"),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: _urlController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'API URL',
+                    hintText: 'Enter your new API URL',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: const Icon(Icons.lock),
+                    filled: true,
+                    fillColor: Colors.brown.shade100,
+                  ),
+                ),
+                const SizedBox(height: 15),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: (){apiUrl = _urlController.text;},
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.brown.shade600,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      disabledBackgroundColor: Colors.brown.shade300,
+                    ),
+                    child: const Text(
+                      'Set',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ],
