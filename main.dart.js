@@ -45183,8 +45183,9 @@ if(!n.r){r=A.bX(30)
 B.b.O(o,A.b([A.cv(A.bc("Is this correct?",m,m,m,m,A.ca(m,m,B.k,m,m,m,m,m,m,m,m,24,m,m,B.aw,m,m,!0,m,2,m,m,m,m,m,m),B.ae,m),B.o,new A.bD(B.aU,m,m,r,m,m,B.I),m,m,B.hd,m),B.ik,A.hZ(A.b([A.zn(B.ov,A.bc("Yes",m,m,m,m,m,m,m),new A.apT(n),A.tO(B.cv,m,m,B.eK,m,B.fu)),A.zn(B.ow,A.bc("No",m,m,m,m,m,m,m),new A.apU(n,a),A.tO(B.cv,m,m,B.eK,m,B.fu))],k),B.M,B.bm,B.a5,15)],k))}else{r=A.bX(30)
 B.b.O(o,A.b([A.cv(A.bc("Add to your collection?",m,m,m,m,A.ca(m,m,B.k,m,m,m,m,m,m,m,m,24,m,m,B.aw,m,m,!0,m,2,m,m,m,m,m,m),B.ae,m),B.o,new A.bD(B.aU,m,m,r,m,m,B.I),m,m,B.hd,m),B.ik,A.hZ(A.b([A.zn(B.ov,A.bc("Yes",m,m,m,m,m,m,m),new A.apV(n,a),A.tO(B.cv,m,m,B.eK,m,B.fu)),A.zn(B.ow,A.bc("No",m,m,m,m,m,m,m),new A.apW(n),A.tO(B.cv,m,m,B.eK,m,B.fu))],k),B.M,B.bm,B.a5,15)],k))}o.push(B.lF)
 o.push(A.bc("DogDex identification is by no means 100% accurate.\nIf information it provides looks innacurate it probably is.\nAlways make sure to double check",m,m,m,m,A.ca(m,m,m,m,m,m,m,m,m,m,m,11,m,m,m,m,m,!0,m,m,m,m,m,m,m,m),B.ae,m))
-B.b.O(s,o)}B.b.O(j,s)}else{s=A.bX(30)
-B.b.O(j,A.b([B.ik,A.cv(A.bc("Analyzing",m,m,m,m,A.ca(m,m,B.k,m,m,m,m,m,m,m,m,24,m,m,B.aw,m,m,!0,m,2,m,m,m,m,m,m),B.ae,m),B.o,new A.bD(B.aU,m,m,s,m,m,B.I),m,m,B.hd,m)],k))}return A.Ph(l,B.cQ,A.ha(A.Q3(new A.bC(B.hc,A.dH(j,B.M,B.bm,B.a5,0),m),B.O,m,B.a0),m,m),m,m)}}
+B.b.O(s,o)}B.b.O(j,s)}else{s=A.b([],k)
+if(n.e){r=A.bX(30)
+B.b.O(s,A.b([B.ik,A.cv(A.bc("Analyzing",m,m,m,m,A.ca(m,m,B.k,m,m,m,m,m,m,m,m,24,m,m,B.aw,m,m,!0,m,2,m,m,m,m,m,m),B.ae,m),B.o,new A.bD(B.aU,m,m,r,m,m,B.I),m,m,B.hd,m)],k))}B.b.O(j,s)}return A.Ph(l,B.cQ,A.ha(A.Q3(new A.bC(B.hc,A.dH(j,B.M,B.bm,B.a5,0),m),B.O,m,B.a0),m,m),m,m)}}
 A.apY.prototype={
 $1(a){return a.a},
 $S:276}
