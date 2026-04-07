@@ -235,86 +235,114 @@ class _DogUploadScreenState extends State<DogUploadScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDogClassOptions();
     checkServer();
   }
 
   Future<void> _showDogDialog(BuildContext context) async {
-    if (dogClassOptions.isEmpty) {
-      await _loadDogClassOptions();
-    }
     if (!mounted) return;
 
     String? newBreed = breed;
-    showDialog(
+    var loading = dogClassOptions.isEmpty;
+    var loadStarted = false;
+
+    await showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Breed?"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "If you are unhappy with our guess you can change the estimated breed here",
-              ),
-              const SizedBox(height: 15),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.brown.shade200,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.brown.shade200, width: 5),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.only(left: 10, right: 5),
-                  child: DropdownMenu<String>(
-                    inputDecorationTheme: const InputDecorationTheme(
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            if (loading && !loadStarted) {
+              loadStarted = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                try {
+                  await Future<void>.delayed(const Duration(milliseconds: 180));
+                  await _loadDogClassOptions();
+                } finally {
+                  if (!dialogContext.mounted) return;
+                  setDialogState(() {
+                    loading = false;
+                  });
+                }
+              });
+            }
+
+            return AlertDialog(
+              title: Text("Breed?"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (loading) ...[
+                    CircularProgressIndicator(color: Colors.brown.shade300),
+                    const SizedBox(height: 12),
+                    const Text("Loading breeds..."),
+                  ] else ...[
+                    Text(
+                      "If you are unhappy with our guess you can change the estimated breed here",
                     ),
-                    width: 260,
-                    dropdownMenuEntries: dogClassOptions,
-                    initialSelection: dogClassNames.contains(newBreed)
-                        ? newBreed
-                        : null,
-                    onSelected: (String? value) {
-                      if (value == null) return;
-                      setState(() {
-                        newBreed = value;
-                      });
-                    },
-                  ),
-                ),
+                    const SizedBox(height: 15),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.brown.shade200,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.brown.shade200, width: 5),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 10, right: 5),
+                        child: DropdownMenu<String>(
+                          inputDecorationTheme: const InputDecorationTheme(
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                          ),
+                          width: 260,
+                          dropdownMenuEntries: dogClassOptions,
+                          initialSelection: dogClassNames.contains(newBreed)
+                              ? newBreed
+                              : null,
+                          onSelected: (String? value) {
+                            if (value == null) return;
+                            setState(() {
+                              newBreed = value;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () => {
-                setState(() {
-                  _dogImage = null;
-                  _set = false;
-                  _correct = false;
-                }),
-                Navigator.pop(context),
-              },
-              child: Text("Don't add"),
-            ),
-            TextButton(
-              onPressed: () => {
-                setState(() {
-                  breed = newBreed;
-                  _set = true;
-                }),
-                Navigator.pop(context),
-              },
-              child: Text("Set"),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed: loading
+                      ? null
+                      : () => {
+                          setState(() {
+                            _dogImage = null;
+                            _set = false;
+                            _correct = false;
+                          }),
+                          Navigator.pop(dialogContext),
+                        },
+                  child: Text("Don't add"),
+                ),
+                TextButton(
+                  onPressed: loading
+                      ? null
+                      : () => {
+                          setState(() {
+                            breed = newBreed;
+                            _set = true;
+                          }),
+                          Navigator.pop(dialogContext),
+                        },
+                  child: Text("Set"),
+                ),
+              ],
+            );
+          },
         );
       },
     );
