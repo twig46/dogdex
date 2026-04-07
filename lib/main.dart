@@ -1166,7 +1166,7 @@ class _DogCollectionScreenState extends State<DogCollectionScreen> {
                               children: [
                                 Icon(
                                   Icons.pets,
-                                  size: 80,
+                                  size: 70,
                                   color: Colors.brown.shade300,
                                 ),
                                 const SizedBox(height: 16),
@@ -1460,9 +1460,11 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                               ),
                                               child: Text(
                                                 "Height",
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
-                                                  fontSize: 14,
+                                                  fontSize: 13,
                                                   fontWeight: FontWeight.bold,
                                                   color: Colors.white,
                                                   letterSpacing: 2,
@@ -1488,9 +1490,11 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                               ),
                                               child: Text(
                                                 "Weight",
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
-                                                  fontSize: 14,
+                                                  fontSize: 13,
                                                   fontWeight: FontWeight.bold,
                                                   color: Colors.white,
                                                   letterSpacing: 2,
@@ -1587,8 +1591,10 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                                 child: Text(
                                                   "Lifespan",
                                                   textAlign: TextAlign.center,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    fontSize: 14,
+                                                    fontSize: 13,
                                                     fontWeight: FontWeight.bold,
                                                     color: Colors.white,
                                                     letterSpacing: 2,
@@ -1642,7 +1648,7 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: TextStyle(
-                                                  fontSize: 14,
+                                                  fontSize: 13,
                                                   fontWeight: FontWeight.bold,
                                                   color: Colors.white,
                                                   letterSpacing: 2,
@@ -1672,7 +1678,7 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: TextStyle(
-                                                  fontSize: 14,
+                                                  fontSize: 13,
                                                   fontWeight: FontWeight.bold,
                                                   color: Colors.white,
                                                   letterSpacing: 2,
@@ -1720,7 +1726,7 @@ class _DogInfoScreenState extends State<DogInfoScreen> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
                                         letterSpacing: 2,
