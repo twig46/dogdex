@@ -1888,33 +1888,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                               ),
                             ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.brown.shade200,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
                                   color: Colors.brown.shade200,
-                                  width: 5,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.brown.shade200,
+                                    width: 5,
+                                  ),
                                 ),
-                              ),
-                              child: Padding(
-                                padding: EdgeInsets.only(left: 10, right: 5),
-                                child: DropdownButton<String>(
-                                  items: commonalityOptions,
-                                  value: commonality,
-                                  underline: Container(height: 0),
-                                  onChanged: (String? value) async {
-                                    if (value == null) return;
-                                    final prefs =
-                                        await SharedPreferences.getInstance();
-                                    setState(() {
-                                      commonality = value;
-                                    });
-                                    await prefs.setString(
-                                      'commonality',
-                                      commonality,
-                                    );
-                                  },
+                                child: Padding(
+                                  padding: EdgeInsets.only(left: 10, right: 5),
+                                  child: DropdownButton<String>(
+                                    isExpanded: true,
+                                    items: commonalityOptions,
+                                    value: commonality,
+                                    underline: Container(height: 0),
+                                    onChanged: (String? value) async {
+                                      if (value == null) return;
+                                      final prefs =
+                                          await SharedPreferences.getInstance();
+                                      setState(() {
+                                        commonality = value;
+                                      });
+                                      await prefs.setString(
+                                        'commonality',
+                                        commonality,
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
                             ),
