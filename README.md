@@ -1,5 +1,3 @@
-# TO EVERYONE COMING HERE FROM FLAVOURTOWN PLEASE RESIZE THE WINDOW TO BE PHONE REOLUTION, IT WILL NOT SCALE CORRECTLY OTHERWISE I CANNOT STRESS THIS ENOUGH, THE APP IS DESIGNED FOR PHONE, PLEASE RESIZE THE WINDOW
-
 # DogDex
 ![DogDex Hackatime](https://hackatime-badge.hackclub.com/U09AR4BDCGZ/dogdex) ![dog_nn Hackatime](https://hackatime-badge.hackclub.com/U09AR4BDCGZ/dog_nn)
 
@@ -8,6 +6,7 @@ A real life Pokédex.. but for dogs!
 ## Overview
 
 I'm making this [project](https://flavortown.hackclub.com/projects/11999) for the [2026 Hack Club Flavortown event](https://flavortown.hackclub.com/), I am also submitting it in the [2026 STAV Science Talent Search](https://stav.org.au/science-talent-search/).
+I personally reccomend opening this on your phone and not your PC but it still works fine on your PC.
 
 The main two features of DogDex are identifying and tracking dogs. By pressing the large camera button in the bottom center you can either take a photo of a dog or use one from your gallery.
 
@@ -26,6 +25,7 @@ You can then press "Yes" twice to add the dog to your personal collection! Or yo
 
 > [!IMPORTANT]
 > This app is not designed with PC / landscape in mind if you plan to open the app on PC resize your window to phone resolution
+> EDIT: This should be fixed, keep this in mind though
 
 ## Design Process
 
